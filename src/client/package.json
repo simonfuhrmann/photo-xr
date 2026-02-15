@@ -1,0 +1,21 @@
+{
+  "name": "photo-xr",
+  "version": "0.1.0",
+  "description": "PhotoXR - A WebXR Photo Viewer",
+  "author": "Simon Fuhrmann",
+  "scripts": {
+    "tsc": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "bundle": "esbuild index.ts --bundle --minify --legal-comments=none --target=es2020 --outfile=index.mjs",
+    "watch": "npm run bundle -- --watch",
+    "clean": "rm -rf index.mjs build/"
+  },
+  "dependencies": {
+    "lit": "^3.3.0",
+    "oxygen-mdc": "^1.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5",
+    "typescript": "^5.8.3"
+  }
+}

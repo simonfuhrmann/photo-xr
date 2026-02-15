@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "outDir": "build/",
+    "strict": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
+  },
+  "watchOptions": {
+    "excludeDirectories": [
+      "**/node_modules",
+      "build/*"
+    ]
+  }
+}

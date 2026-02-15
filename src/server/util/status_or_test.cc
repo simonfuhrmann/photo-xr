@@ -78,7 +78,8 @@ TEST(StatusOrTest, Construction) {
   {
     StatusOr<int> status_or(OkStatus());
     EXPECT_NOT_OK(status_or);
-    EXPECT_EQ(status_or.status(), UnknownError(""));
+    EXPECT_EQ(status_or.status(),
+              UnknownError("Invalid OK status for StatusOr"));
   }
 
   // Initialization from value.

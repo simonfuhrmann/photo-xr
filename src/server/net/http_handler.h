@@ -1,6 +1,7 @@
 #ifndef SRC_NET_HTTP_HANDLER_H_
 #define SRC_NET_HTTP_HANDLER_H_
 
+#include <map>
 #include <string>
 
 #include "src/server/net/http_request.h"
@@ -69,6 +70,11 @@ class HttpStaticFileHandler : public HttpHandlerBase {
     // with the root directory. This is useful for serving the `root_dir` under
     // a specific path prefix. Example: "/photos" (no trailing slash).
     std::string path_prefix;
+
+    // Sets extra headers on the reply. Useful headers are "Cache-Control" to
+    // allow caching of static files, and "Content-Disposition" to suggest the
+    // browser to download the file instead of displaying it.
+    std::map<std::string, std::string> reply_headers;
   };
 
   explicit HttpStaticFileHandler(const Options& options);

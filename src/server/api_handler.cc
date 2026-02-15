@@ -107,6 +107,9 @@ util::Status ApiHandler::HandleAlbumRequest(
   // Send the response as a JSON object.
   request.SetReplyStatus(net::HttpStatus::CODE_200_OK);
   request.SetReplyContentType("application/json");
+  for (const auto& [name, value]: options_.reply_headers) {
+    request.SetReplyHeader(name, value);
+  }
   request.SetReplyBody(json.Serialize(), /*copy_data=*/true);
   return request.Reply();
 }

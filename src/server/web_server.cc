@@ -17,6 +17,8 @@ net::HttpServer::Options GetHttpServerOptions(
 ApiHandler::Options GetApiHandlerOptions(const WebServer::Options& options) {
   ApiHandler::Options api_options;
   api_options.photos_root = options.photos_root;
+  api_options.reply_headers["Access-Control-Allow-Origin"] = "*";
+  api_options.reply_headers["X-Content-Type-Options"] = "nosniff";
   return api_options;
 }
 
@@ -29,6 +31,9 @@ net::HttpStaticFileHandler::Options GetPhotoHandlerOptions(
   net::HttpStaticFileHandler::Options photo_options;
   photo_options.root_dir = options.photos_root;
   photo_options.path_prefix = "/photo";
+  photo_options.reply_headers["Cache-Control"] = "public, max-age=3600";
+  photo_options.reply_headers["Access-Control-Allow-Origin"] = "*";
+  photo_options.reply_headers["X-Content-Type-Options"] = "nosniff";
   return photo_options;
 }
 

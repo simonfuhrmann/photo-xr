@@ -149,6 +149,9 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
   ASSIGN_OR_RETURN(const std::string file_contents, util::ReadFile(local_path));
   request.SetReplyStatus(HttpStatus::CODE_200_OK);
   request.SetReplyContentType(GetContentType(local_path));
+  for (const auto& [name, value]: options_.reply_headers) {
+    request.SetReplyHeader(name, value);
+  }
   request.SetReplyBody(file_contents, /*copy_data=*/false);
   return request.Reply();
 }

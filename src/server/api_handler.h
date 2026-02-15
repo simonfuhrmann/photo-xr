@@ -1,6 +1,8 @@
 #ifndef SRC_SERVER_API_HANDLER_H_
 #define SRC_SERVER_API_HANDLER_H_
 
+#include <map>
+
 #include "src/server/net/http_handler.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/status.h"
@@ -28,6 +30,7 @@ class ApiHandler : public net::HttpHandlerBase {
  public:
   struct Options {
     std::string photos_root;
+    std::map<std::string, std::string> reply_headers;
   };
 
   ApiHandler(const Options& options);

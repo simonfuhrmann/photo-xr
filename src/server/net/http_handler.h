@@ -63,6 +63,12 @@ class HttpStaticFileHandler : public HttpHandlerBase {
     // that request never leave the root path. This prevents serving symlinks
     // under the root directory that point outside the root directory.
     bool strict_root = true;
+
+    // A path prefix that is required on the request path to be matched with
+    // this handler, and that is stripped from the request path before joining
+    // with the root directory. This is useful for serving the `root_dir` under
+    // a specific path prefix. Example: "/photos" (no trailing slash).
+    std::string path_prefix;
   };
 
   explicit HttpStaticFileHandler(const Options& options);

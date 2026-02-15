@@ -24,6 +24,14 @@ net::HttpStaticPageHandler::Options GetErrorHandlerOptions() {
   return net::HttpStaticPageHandler::Options();
 }
 
+net::HttpStaticFileHandler::Options GetPhotoHandlerOptions(
+    const WebServer::Options& options) {
+  net::HttpStaticFileHandler::Options photo_options;
+  photo_options.root_dir = options.photos_root;
+  photo_options.path_prefix = "/photo";
+  return photo_options;
+}
+
 net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
   net::HttpStaticFileHandler::Options options;
   options.root_dir = "src/client/";
@@ -36,10 +44,12 @@ net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
 WebServer::WebServer(const Options& options)
     : http_server_(GetHttpServerOptions(options)),
       api_handler_(GetApiHandlerOptions(options)),
+      photo_handler_(GetPhotoHandlerOptions(options)),
       file_handler_(GetFileHandlerOptions()),
       error_handler_(GetErrorHandlerOptions()) {
   http_server_.RegisterHandler(&logger_handler_);
   http_server_.RegisterHandler(&api_handler_);
+  http_server_.RegisterHandler(&photo_handler_);
   http_server_.RegisterHandler(&file_handler_);
   http_server_.RegisterHandler(&error_handler_);
 }

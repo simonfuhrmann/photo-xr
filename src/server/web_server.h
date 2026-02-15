@@ -30,6 +30,7 @@ class WebServer {
   net::HttpServer http_server_;
   LoggerHandler logger_handler_;
   ApiHandler api_handler_;
+  net::HttpStaticFileHandler photo_handler_;
   net::HttpStaticFileHandler file_handler_;
   net::HttpStaticPageHandler error_handler_;
 };

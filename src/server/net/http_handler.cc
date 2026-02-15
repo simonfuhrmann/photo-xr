@@ -124,12 +124,18 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
     return util::InvalidArgumentError("Only GET requests are supported");
   }
 
+  // Ensure the `path_prefix` is present and strip it from the request path.
+  std::string_view req_path = request.GetRequestTarget();
+  if (!util::HasPrefix(req_path, options_.path_prefix)) {
+    return util::NotFoundError("File not found");
+  }
+  req_path.remove_prefix(options_.path_prefix.size());
+
   // Get the concatenation of the root directory and the normalized request
   // path, with URI query and fragment components removed, then canonicalized.
   // This is an existing file in the local file system.
-  ASSIGN_OR_RETURN(
-      const std::string& local_path,
-      GetLocalRequestPath(request.GetRequestTarget(), options_.root_dir));
+  ASSIGN_OR_RETURN(const std::string& local_path,
+                   GetLocalRequestPath(req_path, options_.root_dir));
 
   // With `strict_root` enabled, make sure the canonical root directory is a
   // prefix of the request path.

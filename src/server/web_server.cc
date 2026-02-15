@@ -14,6 +14,12 @@ net::HttpServer::Options GetHttpServerOptions(
   return http_options;
 }
 
+ApiHandler::Options GetApiHandlerOptions(const WebServer::Options& options) {
+  ApiHandler::Options api_options;
+  api_options.photos_root = options.photos_root;
+  return api_options;
+}
+
 net::HttpStaticPageHandler::Options GetErrorHandlerOptions() {
   return net::HttpStaticPageHandler::Options();
 }
@@ -29,9 +35,11 @@ net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
 
 WebServer::WebServer(const Options& options)
     : http_server_(GetHttpServerOptions(options)),
+      api_handler_(GetApiHandlerOptions(options)),
       file_handler_(GetFileHandlerOptions()),
       error_handler_(GetErrorHandlerOptions()) {
   http_server_.RegisterHandler(&logger_handler_);
+  http_server_.RegisterHandler(&api_handler_);
   http_server_.RegisterHandler(&file_handler_);
   http_server_.RegisterHandler(&error_handler_);
 }

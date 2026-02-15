@@ -4,6 +4,7 @@
 #include "src/server/net/http_handler.h"
 #include "src/server/net/http_server.h"
 #include "src/server/util/status.h"
+#include "src/server/api_handler.h"
 
 namespace server {
 
@@ -12,6 +13,7 @@ class WebServer {
   struct Options {
     int listen_port = 8080;
     int num_threads = 4;
+    std::string photos_root;
   };
 
   WebServer(const Options& options);
@@ -27,6 +29,7 @@ class WebServer {
 
   net::HttpServer http_server_;
   LoggerHandler logger_handler_;
+  ApiHandler api_handler_;
   net::HttpStaticFileHandler file_handler_;
   net::HttpStaticPageHandler error_handler_;
 };

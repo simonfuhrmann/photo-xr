@@ -13,6 +13,13 @@ cc_library(
 )
 
 cc_library(
+  name = "json",
+  hdrs = ["json.h"],
+  srcs = ["json.cc"],
+  deps = [":string_utils"]
+)
+
+cc_library(
   name = "status_or",
   hdrs = ["status_or.h"],
   srcs = ["status_or.cc"],
@@ -45,6 +52,17 @@ cc_test(
   size = "small",
   deps = [
     ":file_utils",
+    "//src/server/test:tinytest",
+  ],
+)
+
+cc_test(
+  name = "json_test",
+  srcs = ["json_test.cc"],
+  size = "small",
+  deps = [
+    ":json",
+    ":status",
     "//src/server/test:tinytest",
   ],
 )

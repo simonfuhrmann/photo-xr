@@ -7,10 +7,13 @@ cc_library(
   hdrs = ["api_handler.h"],
   srcs = ["api_handler.cc"],
   deps = [
+    ":xmp_util",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
     "//src/server/net:http_request",
+    "//src/server/util:base64",
     "//src/server/util:status",
+    "//src/server/util:status_or",
     "//src/server/util:json",
   ],
 )

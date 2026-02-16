@@ -3,6 +3,13 @@ package(default_visibility = ["//visibility:public"])
 # Libraries
 
 cc_library(
+  name = "base64",
+  hdrs = ["base64.h"],
+  srcs = ["base64.cc"],
+  deps = [":status_or"],
+)
+
+cc_library(
   name = "file_utils",
   hdrs = ["file_utils.h"],
   srcs = ["file_utils.cc"],
@@ -45,6 +52,16 @@ cc_library(
 )
 
 # Tests
+
+cc_test(
+  name = "base64_test",
+  srcs = ["base64_test.cc"],
+  size = "small",
+  deps = [
+    ":base64",
+    "//src/server/test:tinytest",
+  ],
+)
 
 cc_test(
   name = "file_utils_test",

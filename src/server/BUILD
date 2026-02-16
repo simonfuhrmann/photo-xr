@@ -27,3 +27,12 @@ cc_library(
     "//src/server/util:status",
   ],
 )
+
+cc_library(
+  name = "xmp_util",
+  hdrs = ["xmp_util.h"],
+  srcs = ["xmp_util.cc"],
+  deps = [
+    "//src/server/util:status_or",
+  ],
+)

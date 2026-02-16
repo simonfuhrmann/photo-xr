@@ -4,41 +4,26 @@
 #include "src/server/util/status_or.h"
 
 namespace util {
-namespace {
-
-const uint8_t* Cast(const char* str) {
-  return reinterpret_cast<const uint8_t*>(str);
-}
-
-bool CompareResult(const StatusOr<std::vector<uint8_t>>& decoded,
-                   const std::string& expected) {
-  if (!decoded.ok()) return false;
-  const std::string_view decoded_view(
-      reinterpret_cast<const char*>(decoded->data()), decoded->size());
-  return decoded_view == expected;
-}
-
-}  // namespace
 
 TEST(Base64, Encode) {
   // Test empty input.
   EXPECT_EQ(Base64Encode(nullptr, 0), "");
-  EXPECT_EQ(Base64Encode(Cast(""), 0), "");
+  EXPECT_EQ(Base64Encode(""), "");
 
   // Test examples from Wikipedia.
-  EXPECT_EQ(Base64Encode(Cast("Man"), 3), "TWFu");
-  EXPECT_EQ(Base64Encode(Cast("Ma"), 2), "TWE=");
-  EXPECT_EQ(Base64Encode(Cast("M"), 1), "TQ==");
+  EXPECT_EQ(Base64Encode("Man"), "TWFu");
+  EXPECT_EQ(Base64Encode("Ma"), "TWE=");
+  EXPECT_EQ(Base64Encode("M"), "TQ==");
 }
 
 TEST(Base64, Decode) {
   // Test empty input.
-  EXPECT_TRUE(CompareResult(Base64Decode(""), ""));
+  EXPECT_EQ(*Base64Decode(""), std::string());
 
   // Test examples from Wikipedia.
-  EXPECT_TRUE(CompareResult(Base64Decode("TWFu"), "Man"));
-  EXPECT_TRUE(CompareResult(Base64Decode("TWE="), "Ma"));
-  EXPECT_TRUE(CompareResult(Base64Decode("TQ=="), "M"));
+  EXPECT_EQ(*Base64Decode("TWFu"), std::string("Man"));
+  EXPECT_EQ(*Base64Decode("TWE="), std::string("Ma"));
+  EXPECT_EQ(*Base64Decode("TQ=="), std::string("M"));
 }
 
 TEST(Base64, EncodeDecode) {
@@ -48,8 +33,7 @@ TEST(Base64, EncodeDecode) {
       "This\nis\ta\x01test\x03string.",
   };
   for (const std::string& test : test_cases) {
-    const std::string encoded = Base64Encode(Cast(test.data()), test.size());
-    EXPECT_TRUE(CompareResult(Base64Decode(encoded), test));
+    EXPECT_EQ(*Base64Decode(Base64Encode(test)), test);
   }
 }
 

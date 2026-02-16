@@ -1,6 +1,11 @@
 #include "src/server/util/base64.h"
 
 #include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+
+#include "src/server/util/status_or.h"
 
 namespace util {
 namespace {
@@ -19,6 +24,11 @@ constexpr std::array<uint8_t, 256> kDecodeTable = [] {
 }();
 
 }  // namespace
+
+std::string Base64Encode(std::string_view data) {
+  return Base64Encode(reinterpret_cast<const uint8_t*>(data.data()),
+                      data.size());
+}
 
 std::string Base64Encode(const uint8_t* data, size_t size) {
   // Return the empty string if the input is empty.
@@ -56,9 +66,9 @@ std::string Base64Encode(const uint8_t* data, size_t size) {
   return out;
 }
 
-StatusOr<std::vector<uint8_t>> Base64Decode(const std::string& base64) {
-  // Return an empty vector if the input is empty.
-  if (base64.empty()) return std::vector<uint8_t>{};
+StatusOr<std::string> Base64Decode(std::string_view base64) {
+  // Return an empty string if the input is empty.
+  if (base64.empty()) return std::string{};
 
   // The input must be a multiple of 4 characters.
   if (base64.size() % 4 != 0) {
@@ -72,7 +82,7 @@ StatusOr<std::vector<uint8_t>> Base64Decode(const std::string& base64) {
 
   // Estimate the output size.
   const size_t out_len = base64.size() / 4 * 3 - padding;
-  std::vector<uint8_t> out(out_len);
+  std::string out(out_len, '\0');
 
   size_t i = 0;  // Input index.
   size_t j = 0;  // Output index.

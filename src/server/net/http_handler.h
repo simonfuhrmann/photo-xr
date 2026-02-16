@@ -68,7 +68,7 @@ class HttpStaticFileHandler : public HttpHandlerBase {
     // A path prefix that is required on the request path to be matched with
     // this handler, and that is stripped from the request path before joining
     // with the root directory. This is useful for serving the `root_dir` under
-    // a specific path prefix. Example: "/photos" (no trailing slash).
+    // a specific path prefix. Example: "/static" (no trailing slash).
     std::string path_prefix;
 
     // Sets extra headers on the reply. Useful headers are "Cache-Control" to

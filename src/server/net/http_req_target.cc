@@ -9,7 +9,7 @@ namespace net {
 HttpReqTarget::HttpReqTarget(std::string_view request_target)
     : target_(request_target) {
   // Find start of query string.
-  const size_t qpos = target_.find('?');
+  const size_t qpos = target_.find_first_of('?');
   if (qpos == std::string::npos) {
     path_ = target_;
     return;

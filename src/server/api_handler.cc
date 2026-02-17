@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "src/server/album_cache.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/base64.h"
 #include "src/server/util/file_utils.h"
@@ -15,7 +16,9 @@
 
 namespace server {
 namespace {
+
 namespace fs = std::filesystem;
+using FsEntry = fs::directory_entry;
 
 std::string ToLower(std::string_view str) {
   std::string result(str);
@@ -83,14 +86,16 @@ util::Status ApiHandler::HandleAlbumRequest(
     return util::AbortedError("Album not found");
   }
 
+  AlbumCache album_cache(local_path);
+
   // Read the directory contents.
-  std::vector<std::string> albums;
-  std::vector<std::string> photos;
-  for (const auto& entry : fs::directory_iterator(local_path)) {
+  std::vector<FsEntry> albums;
+  std::vector<FsEntry> photos;
+  for (const FsEntry& entry : fs::directory_iterator(local_path)) {
     if (entry.is_directory()) {
-      albums.push_back(entry.path().filename().string());
+      albums.push_back(entry);
     } else if (IsImageFile(entry)) {
-      photos.push_back(entry.path().filename().string());
+      photos.push_back(entry);
     }
   }
 
@@ -100,16 +105,19 @@ util::Status ApiHandler::HandleAlbumRequest(
 
   // Convert to JSON: directories to albums and files to photos.
   util::Json::Array entries;
-  for (const std::string& album : albums) {
+  for (const FsEntry& album : albums) {
     util::Json::Object album_entry;
     album_entry["type"] = "album";
-    album_entry["name"] = album;
+    album_entry["name"] = album.path().filename().string();
     entries.push_back(album_entry);
   }
-  for (const std::string& photo : photos) {
+  for (const FsEntry& photo : photos) {
+    const std::string photo_path = photo.path().filename().string();
+    AlbumCache::CacheData cache_data = album_cache.Get(photo_path);
     util::Json::Object photo_entry;
     photo_entry["type"] = "photo";
-    photo_entry["name"] = photo;
+    photo_entry["name"] = photo.path().filename().string();
+    photo_entry["stereo"] = cache_data.stereo_type;
     entries.push_back(photo_entry);
   }
   util::Json::Object json_response;

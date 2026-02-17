@@ -3,10 +3,23 @@ package(default_visibility = ["//visibility:public"])
 # Libraries
 
 cc_library(
+  name = "album_cache",
+  hdrs = ["album_cache.h"],
+  srcs = ["album_cache.cc"],
+  deps = [
+    ":xmp_util",
+    "//src/server/util:file_utils",
+    "//src/server/util:status",
+    "//src/server/util:status_or",
+  ],
+)
+
+cc_library(
   name = "api_handler",
   hdrs = ["api_handler.h"],
   srcs = ["api_handler.cc"],
   deps = [
+    ":album_cache",
     ":xmp_util",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",

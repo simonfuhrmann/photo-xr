@@ -26,13 +26,13 @@ namespace server {
 //     "entries": [
 //       { type: "album", "name": "Iceland" },
 //       { type: "album", "name": "Japan" },
-//       { type: "photo", "name": "cover.jpg", "eyes": "separate" }
+//       { type: "photo", "name": "cover.jpg", "eyes": "gphoto" }
 //     ]
 //   }
 //
 // Currently supported layouts for photos are
 //
-// - "separate": Google's VR photo format, which has the left eye in the JPEG
+// - "gphoto": Google's VR photo format, which has the left eye in the JPEG
 //   data, the right eye in the XMP metadata as base64-encoded JPEG.
 //   https://developers.google.com/vr/reference/cardboard-camera-vr-photo-format
 // - "sbs": Side-by-side format, where the left and right eyes are stored in the

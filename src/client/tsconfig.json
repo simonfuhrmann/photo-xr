@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "esnext",
     "moduleResolution": "bundler",
+    "module": "esnext",
+    "target": "es2020",
+    "lib": ["ES2022", "DOM"],
     "outDir": "build/",
     "strict": true,
     "experimentalDecorators": true,

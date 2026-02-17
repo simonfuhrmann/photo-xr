@@ -8,7 +8,7 @@ namespace {
 net::HttpServer::Options GetHttpServerOptions(
     const WebServer::Options& options) {
   net::HttpServer::Options http_options;
-  http_options.listen_address = "127.0.0.1";
+  http_options.listen_address = "0.0.0.0";  // Listen on all interfaces.
   http_options.listen_port = options.listen_port;
   http_options.num_threads = options.num_threads;
   return http_options;

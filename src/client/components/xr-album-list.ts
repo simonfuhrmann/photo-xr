@@ -7,7 +7,7 @@ import 'oxygen-mdc/oxy-icons-image'
 
 import '../icons/oxy-icons-xr'
 import * as api from '../modules/server_api';
-import * as types from '../modules/server_types';
+import * as types from '../modules/client_types';
 
 @customElement('xr-album-list')
 export class XrAlbumList extends LitElement {
@@ -89,15 +89,10 @@ export class XrAlbumList extends LitElement {
 
   private renderPhotoEntry(entry: types.AlbumEntry) {
     const isOpen = entry.name === this.selected;
-    const onClick = () => {
-      this.selected = entry.name;
-      const detail = { path: `${this.path}/${entry.name}` };
-      this.dispatchEvent(new CustomEvent('photo-selected', { detail, bubbles: true, composed: true }));
-    }
-    const icon = getIconForEntry(entry);
+    const onMediaSelected = this.onMediaSelected.bind(this, entry);
     return html`
-      <div class="entry" ?selected=${isOpen} @click=${onClick}>
-        <oxy-icon icon="${icon}"></oxy-icon>
+      <div class="entry" ?selected=${isOpen} @click=${onMediaSelected}>
+        <oxy-icon icon="${getIconForEntry(entry)}"></oxy-icon>
         <div>${entry.name}</div>
       </div>
     `;
@@ -126,10 +121,21 @@ export class XrAlbumList extends LitElement {
     }
     return html`
       <xr-album-list
-        path="${this.path}/${entry.name}"
+        path="${joinPaths(this.path, entry.name)}"
         @loading=${onAlbumLoading}>
       </xr-album-list>
     `;
+  }
+
+  private onMediaSelected(entry: types.AlbumEntry) {
+    if (!this.apiData) return;
+    this.selected = entry.name;
+    const mediaIndex = this.apiData.entries.findIndex((e) => e === entry);
+    if (mediaIndex === -1) return;
+
+    const detail = { album: this.apiData, index: mediaIndex };
+    const eventOptions = { detail, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('media-selected', eventOptions));
   }
 
   private onRequest() {
@@ -152,10 +158,17 @@ export class XrAlbumList extends LitElement {
 }
 
 function getIconForEntry(entry: types.AlbumEntry) {
-  if (entry.stereo === 'gphoto') {
+  if (entry.stereo === types.StereoMode.GOOGLE_PHOTO) {
     return 'xr:vr180';
-  } else if (entry.stereo === 'sbs') {
+  } else if (entry.stereo === types.StereoMode.SIDE_BY_SIDE) {
     return 'xr:sbs';
   }
   return 'image:photo';
+}
+
+function joinPaths(path1: string, path2: string) {
+  if (path1.endsWith('/') || path2.startsWith('/')) {
+    return `${path1}${path2}`;
+  }
+  return `${path1}/${path2}`;
 }

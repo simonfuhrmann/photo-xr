@@ -17,6 +17,6 @@ export class XrAppSidebar extends LitElement {
   `;
 
   override render() {
-    return html`<xr-album-list></xr-album-list>`;
+    return html`<xr-album-list path="/"></xr-album-list>`;
   }
 }

@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 
 import './xr-app-sidebar';
 import './xr-app-viewer';
+import * as types from '../modules/client_types';
 
 @customElement('xr-app')
 export class XrApp extends LitElement {
@@ -21,15 +22,15 @@ export class XrApp extends LitElement {
     }
   `;
 
-  @state() private selectedPath = '';
+  @state() private selectedMedia?: types.SelectedMedia;
 
   override render() {
-    const onSelected = (e: CustomEvent<{ path: string }>) => {
-      this.selectedPath = e.detail.path;
+    const onSelected = (e: CustomEvent<types.SelectedMedia>) => {
+      this.selectedMedia = e.detail;
     };
     return html`
-      <xr-app-sidebar @photo-selected=${onSelected}></xr-app-sidebar>
-      <xr-app-viewer .path="${this.selectedPath}"></xr-app-viewer>
+      <xr-app-sidebar @media-selected=${onSelected}></xr-app-sidebar>
+      <xr-app-viewer .media=${this.selectedMedia}></xr-app-viewer>
     `;
   }
 }

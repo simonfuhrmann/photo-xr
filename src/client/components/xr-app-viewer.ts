@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import 'oxygen-mdc/oxy-button'
 
 import * as webXR from '../webxr/webxr'
+import * as types from '../modules/client_types';
 
 @customElement('xr-app-viewer')
 export class XrAppViewer extends LitElement {
@@ -38,7 +39,7 @@ export class XrAppViewer extends LitElement {
     }
   `;
 
-  @property({ type: String }) private path = '';
+  @property({ attribute: false }) media?: types.SelectedMedia;
   @state() private xrAvailable = false;
 
   override connectedCallback() {
@@ -50,7 +51,7 @@ export class XrAppViewer extends LitElement {
     return html`
       ${this.renderXRStatus()}
       ${this.renderXRButton()}
-      <div>Image path: ${this.path}</div>
+      ${this.renderMediaInfo()}
     `;
   }
 
@@ -67,12 +68,33 @@ export class XrAppViewer extends LitElement {
     return html`<div class="success">WebXR is available!</div>`;
   }
 
+  private renderMediaInfo() {
+    if (!this.media) {
+      return html`<div>No media selected.</div>`;
+    }
+
+    const entry = this.media.album.entries[this.media.index];
+    return html`
+      <div>Album: ${this.media.album.path}</div>
+      <div>Photo: ${entry.name}</div>
+    `;
+  }
+
   private renderXRButton() {
     if (!this.xrAvailable) return;
     return html`
       <div id="buttons">
-        <oxy-button @click=${this.enterXR}>Enter VR</oxy-button>
-        <oxy-button @click=${this.leaveXR}>Leave VR</oxy-button>
+        <oxy-button
+          ?disabled=${!this.media}
+          @click=${this.enterXR}>
+          Enter VR
+        </oxy-button>
+
+        <oxy-button
+          ?disabled=${!this.media}
+          @click=${this.leaveXR}>
+          Leave VR
+        </oxy-button>
       </div>
     `;
   }
@@ -82,13 +104,14 @@ export class XrAppViewer extends LitElement {
   }
 
   private async enterXR() {
-    if (!navigator.xr) return;
+    if (!navigator.xr || !this.media) return;
     const session = await navigator.xr.requestSession('immersive-vr', {
-      // TODO: Check what I need here.
-      requiredFeatures: ['local-floor'],
+      requiredFeatures: ['local-floor'], // TODO: Check what I need here.
     });
-    webXR.startSession(session);
-    console.log('XR session started', session);
+
+    // Check if `media` is still valid, because of async function above.
+    if (!this.media) return;
+    webXR.startSession(session, this.media);
   }
 
   private async leaveXR() {
@@ -97,8 +120,6 @@ export class XrAppViewer extends LitElement {
 }
 
 async function isWebXRAvailable() {
-  if (navigator.xr) {
-    return await navigator.xr.isSessionSupported('immersive-vr');
-  }
-  return false;
+  if (!navigator.xr) return false;
+  return await navigator.xr.isSessionSupported('immersive-vr');
 }

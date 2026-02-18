@@ -62,10 +62,10 @@ class ApiHandler : public net::HttpHandlerBase {
                                   const net::HttpReqTarget& target) const;
   util::Status HandlePhotoRequest(net::HttpRequest& request,
                                   const net::HttpReqTarget& target) const;
-  util::Status HandlePhotoLeftEyeRequest(net::HttpRequest& request,
-                                         std::string_view local_path) const;
-  util::Status HandlePhotoRightEyeRequest(net::HttpRequest& request,
-                                          std::string_view local_path) const;
+  util::StatusOr<std::string> GetEyeDataGphoto(const std::string& photo_data,
+                                               bool is_left_eye) const;
+  util::StatusOr<std::string> GetEyeDataSbs(const std::string& photo_data,
+                                            bool is_left_eye) const;
 
  private:
   util::StatusOr<std::string> GetLocalPath(std::string_view req_path) const;

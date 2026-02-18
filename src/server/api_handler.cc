@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iostream>  // TMP
 #include <string>
 #include <string_view>
 #include <vector>
@@ -141,34 +142,46 @@ util::Status ApiHandler::HandlePhotoRequest(
   if (eye != "left" && eye != "right") {
     return util::AbortedError("Invalid eye parameter");
   }
-  // Get the local path of the photo.
+  // Get the local path of the photo, and read into memory.
   const std::string_view req_path = target.GetParam("path");
   ASSIGN_OR_RETURN(const std::string local_path, GetLocalPath(req_path));
-
-  const bool is_left_eye = (eye == "left");
-  return is_left_eye ? HandlePhotoLeftEyeRequest(request, local_path)
-                     : HandlePhotoRightEyeRequest(request, local_path);
-}
-
-util::Status ApiHandler::HandlePhotoLeftEyeRequest(
-    net::HttpRequest& request, std::string_view local_path) const {
-  // For the left eye, just return the original JPEG data. It would be nice
-  // to strip the extra XMP metadata for the right eye to save bandwidth.
   ASSIGN_OR_RETURN(const std::string photo_data, util::ReadFile(local_path));
+
+  // Check which type of stereo the photo is.
+  const fs::path parent_dir = fs::path(local_path).parent_path();
+  AlbumCache album_cache(parent_dir.string());
+  AlbumCache::CacheData cache_data =
+      album_cache.Get(fs::path(local_path).filename().string());
+
+  // Get the corresponding eye data based on the stereo format.
+  std::string eye_data;
+  const bool is_left_eye = (eye == "left");
+  if (cache_data.stereo_type == "gphoto") {
+    ASSIGN_OR_RETURN(eye_data, GetEyeDataGphoto(photo_data, is_left_eye));
+  } else if (cache_data.stereo_type == "sbs") {
+    ASSIGN_OR_RETURN(eye_data, GetEyeDataSbs(photo_data, is_left_eye));
+  } else {
+    return util::AbortedError("Unsupported photo format");
+  }
+
+  // Send the response to the client.
   request.SetReplyStatus(net::HttpStatus::CODE_200_OK);
   request.SetReplyContentType("image/jpeg");
   for (const auto& [name, value] : options_.reply_headers) {
     request.SetReplyHeader(name, value);
   }
-  request.SetReplyBody(photo_data, /*copy_data=*/false);
+  request.SetReplyBody(eye_data, /*copy_data=*/false);
   return request.Reply();
 }
 
-util::Status ApiHandler::HandlePhotoRightEyeRequest(
-    net::HttpRequest& request, std::string_view local_path) const {
+util::StatusOr<std::string> ApiHandler::GetEyeDataGphoto(
+    const std::string& photo_data, bool is_left_eye) const {
+  // For the left eye, just return the full JPEG data.
+  // TODO: Strip metadata, specifally the second eye in the XMP.
+  if (is_left_eye) return photo_data;
+
   // For the right eye, read the full JPEG, find the base64 encoded JPEG in the
   // XMP metadata, decode it and return the data.
-  ASSIGN_OR_RETURN(const std::string photo_data, util::ReadFile(local_path));
   ASSIGN_OR_RETURN(std::string xmp_data, ExtractXmpFromJpeg(photo_data));
 
   // Extract the base64-encoded JPEG in the GImage:Data field.
@@ -198,17 +211,14 @@ util::Status ApiHandler::HandlePhotoRightEyeRequest(
   const std::string_view xmp_data_view(xmp_data);
   const std::string_view base64_data =
       xmp_data_view.substr(base64_start, base64_end - base64_start);
-  ASSIGN_OR_RETURN(const std::string decoded_data,
-                   util::Base64Decode(base64_data));
+  return util::Base64Decode(base64_data);
+}
 
-  // Send the binary JPEG data as the response.
-  request.SetReplyStatus(net::HttpStatus::CODE_200_OK);
-  request.SetReplyContentType("image/jpeg");
-  for (const auto& [name, value] : options_.reply_headers) {
-    request.SetReplyHeader(name, value);
-  }
-  request.SetReplyBody(decoded_data, /*copy_data=*/false);
-  return request.Reply();
+util::StatusOr<std::string> ApiHandler::GetEyeDataSbs(
+    const std::string& photo_data, bool is_left_eye) const {
+  // Decode the JPEG data and split the left and right eye.
+  // TODO: implement this. Requires JPEG decoding, splitting, re-encoding.
+  return util::AbortedError("SBS format not supported yet");
 }
 
 }  // namespace server

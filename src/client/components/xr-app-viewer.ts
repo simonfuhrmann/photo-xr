@@ -42,6 +42,13 @@ export class XrAppViewer extends LitElement {
   @property({ attribute: false }) media?: types.SelectedMedia;
   @state() private xrAvailable = false;
 
+  // Push the new media into the immersive session, if active.
+  override willUpdate(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('media')) {
+      this.updateMedia();
+    }
+  }
+
   override connectedCallback() {
     super.connectedCallback();
     this.checkXR();
@@ -116,6 +123,11 @@ export class XrAppViewer extends LitElement {
 
   private async leaveXR() {
     webXR.endSession();
+  }
+
+  private updateMedia() {
+    if (!this.media) return;
+    webXR.updateMedia(this.media);
   }
 }
 

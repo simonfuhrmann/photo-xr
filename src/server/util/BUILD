@@ -20,6 +20,16 @@ cc_library(
 )
 
 cc_library(
+  name = "image_io_jpeg",
+  hdrs = ["image_io_jpeg.h"],
+  srcs = ["image_io_jpeg.cc"],
+  deps = [
+    ":status",
+    ":status_or",
+  ],
+)
+
+cc_library(
   name = "json",
   hdrs = ["json.h"],
   srcs = ["json.cc"],
@@ -71,6 +81,19 @@ cc_test(
     ":file_utils",
     "//src/server/test:tinytest",
   ],
+)
+
+cc_test(
+  name = "image_io_jpeg_test",
+  srcs = ["image_io_jpeg_test.cc"],
+  size = "small",
+  deps = [
+    ":image_io_jpeg",
+    ":status",
+    ":status_or",
+    "//src/server/test:tinytest",
+  ],
+  linkopts = ["-ljpeg"],
 )
 
 cc_test(

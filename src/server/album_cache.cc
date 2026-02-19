@@ -6,8 +6,8 @@
 #include <iostream>
 
 #include "src/server/util/file_utils.h"
+#include "src/server/util/image_io_jpeg.h"
 #include "src/server/util/status_or.h"
-#include "src/server/xmp_util.h"
 
 namespace server {
 namespace {
@@ -35,11 +35,13 @@ FsTime GetLastModifiedTime(const FsEntry& entry) {
 }
 
 util::StatusOr<std::string> GetStereoType(const FsEntry& entry) {
+  util::LoadJpegOptions options;
+  options.include_image_data = false;
+  options.include_xmp_data = true;
   std::string_view path = entry.path().c_str();
-  ASSIGN_OR_RETURN(const std::string jpg_data, util::ReadFile(path));
-  ASSIGN_OR_RETURN(const std::string xmp, ExtractXmpFromJpeg(jpg_data));
-  if (xmp.find("xmlns:GImage") != std::string::npos &&
-      xmp.find("GImage:Data") != std::string::npos) {
+  ASSIGN_OR_RETURN(const util::ImageData image, JpegRead(options, path));
+  if (image.xmp_metadata.find("xmlns:GImage") != std::string::npos &&
+      image.xmp_metadata.find("HasExtendedXMP") != std::string::npos) {
     return std::string("gphoto");
   }
   // Default to side-by-side if no XMP metadata found.

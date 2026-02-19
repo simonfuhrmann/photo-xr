@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <iostream>  // TMP
 #include <string>
 #include <string_view>
 #include <vector>
@@ -11,9 +10,9 @@
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/base64.h"
 #include "src/server/util/file_utils.h"
+#include "src/server/util/image_io_jpeg.h"
 #include "src/server/util/json.h"
 #include "src/server/util/status_or.h"
-#include "src/server/xmp_util.h"
 
 namespace server {
 namespace {
@@ -145,7 +144,6 @@ util::Status ApiHandler::HandlePhotoRequest(
   // Get the local path of the photo, and read into memory.
   const std::string_view req_path = target.GetParam("path");
   ASSIGN_OR_RETURN(const std::string local_path, GetLocalPath(req_path));
-  ASSIGN_OR_RETURN(const std::string photo_data, util::ReadFile(local_path));
 
   // Check which type of stereo the photo is.
   const fs::path parent_dir = fs::path(local_path).parent_path();
@@ -157,9 +155,9 @@ util::Status ApiHandler::HandlePhotoRequest(
   std::string eye_data;
   const bool is_left_eye = (eye == "left");
   if (cache_data.stereo_type == "gphoto") {
-    ASSIGN_OR_RETURN(eye_data, GetEyeDataGphoto(photo_data, is_left_eye));
+    ASSIGN_OR_RETURN(eye_data, GetEyeDataGphoto(local_path, is_left_eye));
   } else if (cache_data.stereo_type == "sbs") {
-    ASSIGN_OR_RETURN(eye_data, GetEyeDataSbs(photo_data, is_left_eye));
+    ASSIGN_OR_RETURN(eye_data, GetEyeDataSbs(local_path, is_left_eye));
   } else {
     return util::AbortedError("Unsupported photo format");
   }
@@ -175,14 +173,20 @@ util::Status ApiHandler::HandlePhotoRequest(
 }
 
 util::StatusOr<std::string> ApiHandler::GetEyeDataGphoto(
-    const std::string& photo_data, bool is_left_eye) const {
+    const std::string& local_path, bool is_left_eye) const {
   // For the left eye, just return the full JPEG data.
   // TODO: Strip metadata, specifally the second eye in the XMP.
-  if (is_left_eye) return photo_data;
+  if (is_left_eye) {
+    return util::ReadFile(local_path);
+  }
 
-  // For the right eye, read the full JPEG, find the base64 encoded JPEG in the
-  // XMP metadata, decode it and return the data.
-  ASSIGN_OR_RETURN(std::string xmp_data, ExtractXmpFromJpeg(photo_data));
+  // For the right eye, read the XMP from the JPEG, and decode the base64
+  // encoded right-eye JPEG data in the XMP.
+  util::LoadJpegOptions options;
+  options.include_image_data = false;
+  options.include_xmp_data = true;
+  ASSIGN_OR_RETURN(util::ImageData image, JpegRead(options, local_path));
+  std::string& xmp_data = image.xmp_ext_metadata;
 
   // Extract the base64-encoded JPEG in the GImage:Data field.
   constexpr std::string_view kXmpDataPrefix = "GImage:Data=\"";
@@ -215,7 +219,7 @@ util::StatusOr<std::string> ApiHandler::GetEyeDataGphoto(
 }
 
 util::StatusOr<std::string> ApiHandler::GetEyeDataSbs(
-    const std::string& photo_data, bool is_left_eye) const {
+    const std::string& local_path, bool is_left_eye) const {
   // Decode the JPEG data and split the left and right eye.
   // TODO: implement this. Requires JPEG decoding, splitting, re-encoding.
   return util::AbortedError("SBS format not supported yet");

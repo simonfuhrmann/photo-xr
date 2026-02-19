@@ -7,10 +7,10 @@ cc_library(
   hdrs = ["album_cache.h"],
   srcs = ["album_cache.cc"],
   deps = [
-    ":xmp_util",
     "//src/server/util:file_utils",
     "//src/server/util:status",
     "//src/server/util:status_or",
+    "//src/server/util:image_io_jpeg",
   ],
 )
 
@@ -20,7 +20,7 @@ cc_library(
   srcs = ["api_handler.cc"],
   deps = [
     ":album_cache",
-    ":xmp_util",
+    "//src/server/util:image_io_jpeg",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
     "//src/server/net:http_request",
@@ -41,14 +41,5 @@ cc_library(
     "//src/server/net:http_handler",
     "//src/server/net:http_server",
     "//src/server/util:status",
-  ],
-)
-
-cc_library(
-  name = "xmp_util",
-  hdrs = ["xmp_util.h"],
-  srcs = ["xmp_util.cc"],
-  deps = [
-    "//src/server/util:status_or",
   ],
 )

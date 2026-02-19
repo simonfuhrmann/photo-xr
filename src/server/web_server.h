@@ -11,6 +11,7 @@ namespace server {
 class WebServer {
  public:
   struct Options {
+    std::string listen_address = "127.0.0.1";
     int listen_port = 8080;
     int num_threads = 4;
     std::string photos_root;

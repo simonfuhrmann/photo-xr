@@ -7,5 +7,5 @@ cc_binary(
     "//src/server:web_server",
     "//src/server/util:status",
   ],
-  linkopts = [],
+  linkopts = ["-ljpeg"],
 )

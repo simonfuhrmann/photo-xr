@@ -1,6 +1,7 @@
 #ifndef SRC_UTIL_STRING_UTILS_H_
 #define SRC_UTIL_STRING_UTILS_H_
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -19,6 +20,7 @@ std::string StrCat(Args&&... args);
 
 // Converts the given string to an integer. Returns false on error.
 bool StrToInt(std::string_view str, int* value);
+bool StrToInt(std::string_view str, int64_t* value);
 
 // Converts each character to lower-case.
 void ToLowercase(std::string& string);

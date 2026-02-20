@@ -5,9 +5,19 @@
 
 namespace util {
 namespace {
+
 bool IsNewline(char c) { return c == '\n' || c == '\r'; }
 bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
 bool IsWhitespaceOrNewline(char c) { return IsNewline(c) || IsWhitespace(c); }
+
+template <typename T>
+bool StrToIntImpl(std::string_view str, T* value) {
+  std::stringstream ss;
+  ss << str;
+  ss >> *value;
+  return ss.eof() && !ss.fail();
+}
+
 }  // namespace
 
 std::vector<std::string> StrSplit(std::string_view input, char delim,
@@ -30,10 +40,11 @@ std::vector<std::string> StrSplit(std::string_view input, char delim,
 }
 
 bool StrToInt(std::string_view str, int* value) {
-  std::stringstream ss;
-  ss << str;
-  ss >> *value;
-  return ss.eof() && !ss.fail();
+  return StrToIntImpl(str, value);
+}
+
+bool StrToInt(std::string_view str, int64_t* value) {
+  return StrToIntImpl(str, value);
 }
 
 void ToLowercase(std::string& string) {

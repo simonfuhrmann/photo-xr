@@ -84,6 +84,7 @@ class Socket {
  protected:
   Socket();
   util::Status CloseSocket();
+  util::Status MaybeCloseSocket(int errno_code);
 
   SocketFD socket_ = kInvalidSocket;
 };

@@ -14,6 +14,25 @@ util::Status Socket::Close() {
   return util::OkStatus();
 }
 
+util::Status Socket::MaybeCloseSocket(int errno_code) {
+  // These are unrecoverable error codes that still require to close the socket.
+  // A socket shutdown is not required, the connection is already dead.
+#ifndef _WIN32
+  if (errno_code == EPIPE || errno_code == ECONNRESET ||
+      errno_code == ETIMEDOUT || errno_code == ENOTCONN ||
+      errno_code == ECONNABORTED) {
+    return CloseSocket();
+  }
+#else   // _WIN32
+  if (error_code == WSAECONNRESET || error_code == WSAECONNABORTED ||
+      error_code == WSAENETRESET || error_code == WSAETIMEDOUT ||
+      error_code == WSAESHUTDOWN || error_code == WSAENOTCONN) {
+    return CloseSocket();
+  }
+#endif  // _WIN32
+  return util::OkStatus();
+}
+
 util::Status Socket::CloseSocket() {
 #ifndef _WIN32
   if (::close(socket_) == kSocketError) {
@@ -86,11 +105,13 @@ util::StatusOr<size_t> Socket::PartialRead(void* buffer, size_t size,
 #ifndef _WIN32
   const ssize_t ret = ::recv(socket_, (char*)buffer + offset, size, 0);
   if (ret == -1) {
+    MaybeCloseSocket(errno).IgnoreError();
     return util::StatusFromErrno(errno);
   }
 #else   // _WIN32
   const int ret = ::recv(socket_, (char*)buffer + offset, size, 0);
   if (ret == SOCKET_ERROR) {
+    MaybeCloseSocket(WsaGetLastError()).IgnoreError();
     return util::FailedPreconditionError(WsaGetLastErrorString());
   }
 #endif  // _WIN32
@@ -127,11 +148,13 @@ util::StatusOr<size_t> Socket::PartialWrite(const void* buffer, size_t size,
 #ifndef _WIN32
   const ssize_t ret = ::send(socket_, buf + offset, size, 0);
   if (ret == -1) {
+    MaybeCloseSocket(errno).IgnoreError();
     return util::StatusFromErrno(errno);
   }
 #else   // _WIN32
   const int ret = ::send(socket_, buf + offset, size, 0);
   if (ret == SOCKET_ERROR) {
+    MaybeCloseSocket(WsaGetLastError()).IgnoreError();
     return util::FailedPreconditionError(WsaGetLastErrorString());
   }
 #endif  // _WIN32

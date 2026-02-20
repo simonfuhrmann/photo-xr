@@ -144,6 +144,8 @@ void HttpRequest::SetReplyBody(std::string_view body, bool copy_data) {
 
 void HttpRequest::SetReplyBody(const char* body, size_t length,
                                bool copy_data) {
+  reply_body_.clear();
+  reply_body_stream_ = nullptr;
   if (copy_data) {
     reply_body_.assign(body, length);
     reply_body_ptr_ = reply_body_.data();
@@ -151,6 +153,13 @@ void HttpRequest::SetReplyBody(const char* body, size_t length,
     return;
   }
   reply_body_ptr_ = body;
+  reply_body_size_ = length;
+}
+
+void HttpRequest::SetReplyBody(std::istream& stream, size_t length) {
+  reply_body_.clear();
+  reply_body_ptr_ = nullptr;
+  reply_body_stream_ = &stream;
   reply_body_size_ = length;
 }
 
@@ -175,6 +184,11 @@ util::Status HttpRequest::Reply() {
   if (socket_->IsClosed()) {
     return util::FailedPreconditionError("Client socket is closed");
   }
+
+  // Mark this request as replied to. Various things can go wrong below, most
+  // the client closing the connection early. Either way, the server should not
+  // attempt to send another reply for this request.
+  reply_sent_ = true;
 
   // Add a "Content-Length" header if not already set.
   if (reply_headers_.find("content-length") == reply_headers_.end()) {
@@ -205,15 +219,39 @@ util::Status HttpRequest::Reply() {
     RETURN_IF_ERROR(socket_->Write("\n", 1));
   }
 
-  // Output a newline that separates headers and the body.
-  // Close the connection. "Connection: keep-alive" is not supported.
+  // Separate the headers from the body, and send the body payload.
   RETURN_IF_ERROR(socket_->Write("\n", 1));
-  RETURN_IF_ERROR(socket_->Write(reply_body_ptr_, reply_body_size_));
-  reply_sent_ = true;
+  RETURN_IF_ERROR(SendReplyBody());
+
+  // The connection is closed when the Socket goes out of scope.
+  // "Connection: keep-alive" is not supported.
   return util::OkStatus();
 }
 
 bool HttpRequest::HasReplied() const { return reply_sent_; }
+
+util::Status HttpRequest::SendReplyBody() {
+  if (reply_body_ptr_ != nullptr) {
+    RETURN_IF_ERROR(socket_->Write(reply_body_ptr_, reply_body_size_));
+    return util::OkStatus();
+  }
+  
+  if (reply_body_stream_ != nullptr) {
+    char buffer[4096];
+    size_t bytes_left = reply_body_size_;
+    while (bytes_left > 0) {
+      const size_t to_read = std::min(bytes_left, sizeof(buffer));
+      reply_body_stream_->read(buffer, to_read);
+      const size_t bytes_read = reply_body_stream_->gcount();
+      if (bytes_read == 0) break;
+      RETURN_IF_ERROR(socket_->Write(buffer, bytes_read));
+      bytes_left -= bytes_read;
+    }
+    return util::OkStatus();
+  }
+
+  return util::OkStatus();
+}
 
 util::Status HttpRequest::SendErrorResponse(HttpStatus code) {
   std::string_view code_str = HttpCodeToString(code);

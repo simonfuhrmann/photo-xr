@@ -1,6 +1,7 @@
 #ifndef SRC_NET_HTTP_REQUEST_H_
 #define SRC_NET_HTTP_REQUEST_H_
 
+#include <istream>
 #include <map>
 #include <string>
 #include <string_view>
@@ -100,6 +101,10 @@ class HttpRequest {
   void SetReplyBody(std::string_view body, bool copy_data);
   void SetReplyBody(const char* body, size_t length, bool copy_data);
 
+  // Sets the reply body from an input stream. Up to `length` bytes are read
+  // from the stream. The stream object myst stay allocated during Reply().
+  void SetReplyBody(std::istream& stream, size_t length);
+
   //
   // Information about the reply.
   // This is just echoing what has been set earlier.
@@ -133,6 +138,7 @@ class HttpRequest {
   HttpRequest& operator=(const HttpRequest&) = delete;
 
  private:
+  util::Status SendReplyBody();
   util::Status SendErrorResponse(HttpStatus code);
   util::Status ReadPostData();
 
@@ -153,6 +159,7 @@ class HttpRequest {
   std::string reply_body_;
   char const* reply_body_ptr_ = nullptr;
   std::size_t reply_body_size_ = 0;
+  std::istream* reply_body_stream_ = nullptr;
   bool reply_sent_ = false;
 };
 

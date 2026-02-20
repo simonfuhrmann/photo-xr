@@ -47,9 +47,6 @@ class HttpStaticPageHandler : public HttpHandlerBase {
 // paths are always normalized (dot and dot-dot components are removed) to
 // prevent directory traversal attacks, e.g., "GET /../../etc/passwd HTTP/1.1".
 //
-// Note: Requests to "/" are rewritten as "/index.html". Maybe this should be
-// configurable. Directory listings are not supported.
-//
 // Note: File contents are loaded into memory in their entirety before being
 // served to the client, and memory-efficient streaming is not supported.
 class HttpStaticFileHandler : public HttpHandlerBase {
@@ -58,6 +55,10 @@ class HttpStaticFileHandler : public HttpHandlerBase {
     // The root directory that is joined with the request path to locate the
     // file in the file system.
     std::string root_dir;
+
+    // Requests to "/" can be rewritten if `root_rewrite` is not empty.
+    // This handler does not support directory listings.
+    std::string root_rewrite = "/index.html";
 
     // Ensures that the canonicalized root directory is a prefix of the
     // canonicalized root directory joined with the request path. This ensures

@@ -15,7 +15,8 @@ namespace {
 // request path. The returned filename is canonicalized and may not contain the
 // root path as prefix if the requested file traverses a symlink.
 util::StatusOr<std::string> GetLocalRequestPath(
-    std::string_view http_request_target, std::string_view root_dir) {
+    std::string_view http_request_target,
+    const HttpStaticFileHandler::Options& options) {
   // Only paths starting with "/" are supported.
   if (http_request_target.empty() || http_request_target.front() != '/') {
     return util::InvalidArgumentError("Invalid request path");
@@ -28,13 +29,13 @@ util::StatusOr<std::string> GetLocalRequestPath(
   std::string_view req_path = http_request_target.substr(0, strip_pos);
 
   // If the request path is "/", rewrite it as "/index.html".
-  if (req_path == "/") {
-    req_path = "/index.html";
+  if (req_path == "/" && !options.root_rewrite.empty()) {
+    req_path = options.root_rewrite;
   }
 
   // Normalize request path, concatenate with root dir, and canonicalize.
   return util::GetCanonicalPath(
-      util::StrCat(root_dir, "/", util::GetNormalizedPath(req_path)));
+      util::StrCat(options.root_dir, "/", util::GetNormalizedPath(req_path)));
 }
 
 // Returns OK only if `root_path` is a prefix of `req_path`.
@@ -135,7 +136,7 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
   // path, with URI query and fragment components removed, then canonicalized.
   // This is an existing file in the local file system.
   ASSIGN_OR_RETURN(const std::string& local_path,
-                   GetLocalRequestPath(req_path, options_.root_dir));
+                   GetLocalRequestPath(req_path, options_));
 
   // With `strict_root` enabled, make sure the canonical root directory is a
   // prefix of the request path.
@@ -149,7 +150,7 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
   ASSIGN_OR_RETURN(const std::string file_contents, util::ReadFile(local_path));
   request.SetReplyStatus(HttpStatus::CODE_200_OK);
   request.SetReplyContentType(GetContentType(local_path));
-  for (const auto& [name, value]: options_.reply_headers) {
+  for (const auto& [name, value] : options_.reply_headers) {
     request.SetReplyHeader(name, value);
   }
   request.SetReplyBody(file_contents, /*copy_data=*/false);

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "src/server/file_utils.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/image_io_jpeg.h"
 #include "src/server/util/status_or.h"
@@ -35,6 +36,10 @@ FsTime GetLastModifiedTime(const FsEntry& entry) {
 }
 
 util::StatusOr<std::string> GetStereoType(const FsEntry& entry) {
+  if (IsVideoFile(entry)) {
+    return std::string("sbs");
+  }
+
   util::LoadJpegOptions options;
   options.include_image_data = false;
   options.include_xmp_data = true;

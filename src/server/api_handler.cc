@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "src/server/album_cache.h"
+#include "src/server/file_utils.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/base64.h"
 #include "src/server/util/file_utils.h"
@@ -19,19 +20,6 @@ namespace {
 
 namespace fs = std::filesystem;
 using FsEntry = fs::directory_entry;
-
-std::string ToLower(std::string_view str) {
-  std::string result(str);
-  std::transform(result.begin(), result.end(), result.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return result;
-}
-
-bool IsImageFile(const fs::directory_entry& entry) {
-  const fs::path& p = entry.path();
-  const std::string ext = ToLower(p.extension().string());
-  return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp";
-}
 
 }  // namespace
 
@@ -90,18 +78,18 @@ util::Status ApiHandler::HandleAlbumRequest(
 
   // Read the directory contents.
   std::vector<FsEntry> albums;
-  std::vector<FsEntry> photos;
+  std::vector<FsEntry> files;
   for (const FsEntry& entry : fs::directory_iterator(local_path)) {
     if (entry.is_directory()) {
       albums.push_back(entry);
-    } else if (IsImageFile(entry)) {
-      photos.push_back(entry);
+    } else if (IsMediaFile(entry)) {
+      files.push_back(entry);
     }
   }
 
-  // Sort the sub-albums and photos alphabetically.
+  // Sort the sub-albums and media alphabetically.
   std::sort(albums.begin(), albums.end());
-  std::sort(photos.begin(), photos.end());
+  std::sort(files.begin(), files.end());
 
   // Convert to JSON: directories to albums and files to photos.
   util::Json::Array entries;
@@ -111,12 +99,12 @@ util::Status ApiHandler::HandleAlbumRequest(
     album_entry["name"] = album.path().filename().string();
     entries.push_back(album_entry);
   }
-  for (const FsEntry& photo : photos) {
-    const std::string photo_path = photo.path().filename().string();
-    AlbumCache::CacheData cache_data = album_cache.Get(photo_path);
+  for (const FsEntry& file : files) {
+    const std::string file_path = file.path().filename().string();
+    AlbumCache::CacheData cache_data = album_cache.Get(file_path);
     util::Json::Object photo_entry;
-    photo_entry["type"] = "photo";
-    photo_entry["name"] = photo.path().filename().string();
+    photo_entry["type"] = IsVideoFile(file) ? "video" : "photo";
+    photo_entry["name"] = file_path;
     photo_entry["stereo"] = cache_data.stereo_type;
     entries.push_back(photo_entry);
   }

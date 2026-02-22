@@ -7,6 +7,7 @@ cc_library(
   hdrs = ["album_cache.h"],
   srcs = ["album_cache.cc"],
   deps = [
+    ":file_utils",
     "//src/server/util:file_utils",
     "//src/server/util:status",
     "//src/server/util:status_or",
@@ -20,6 +21,7 @@ cc_library(
   srcs = ["api_handler.cc"],
   deps = [
     ":album_cache",
+    ":file_utils",
     "//src/server/util:image_io_jpeg",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
@@ -29,6 +31,13 @@ cc_library(
     "//src/server/util:status_or",
     "//src/server/util:json",
   ],
+)
+
+cc_library(
+  name = "file_utils",
+  hdrs = ["file_utils.h"],
+  srcs = ["file_utils.cc"],
+  deps = [],
 )
 
 cc_library(

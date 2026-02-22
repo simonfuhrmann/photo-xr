@@ -15,6 +15,17 @@ cc_library(
 )
 
 cc_library(
+  name = "http_range_request",
+  hdrs = ["http_range_request.h"],
+  srcs = ["http_range_request.cc"],
+  deps = [
+    ":http_request",
+    "//src/server/util:status_or",
+    "//src/server/util:string_utils",
+  ],
+)
+
+cc_library(
   name = "http_req_target",
   hdrs = ["http_req_target.h"],
   srcs = ["http_req_target.cc"],
@@ -97,6 +108,17 @@ cc_library(
 )
 
 # Tests.
+
+cc_test(
+  name = "http_range_request_test",
+  srcs = ["http_range_request_test.cc"],
+  size = "small",
+  deps = [
+    ":http_range_request",
+    "//src/server/util:status_or",
+    "//src/server/test:tinytest",
+  ],
+)
 
 cc_test(
   name = "http_req_target_test",

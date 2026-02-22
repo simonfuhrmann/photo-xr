@@ -43,7 +43,7 @@ util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
 util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
                        std::ostream& output);
 util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
-                       std::vector<uint8_t>& output);
+                       std::string& output);
 
 }  // namespace util
 

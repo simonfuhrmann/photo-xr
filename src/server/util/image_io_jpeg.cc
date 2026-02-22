@@ -447,7 +447,7 @@ util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
 }
 
 util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
-                       std::vector<uint8_t>& output) {
+                       std::string& output) {
   unsigned char* mem = nullptr;
   unsigned long mem_size = 0;
   const auto set_jpeg_dest = [&](jpeg_compress_struct* cinfo) {

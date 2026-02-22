@@ -40,7 +40,7 @@ util::StatusOr<std::string> GetStereoType(const FsEntry& entry) {
     return std::string("sbs");
   }
 
-  util::LoadJpegOptions options;
+  util::JpegReadOptions options;
   options.include_image_data = false;
   options.include_xmp_data = true;
   std::string_view path = entry.path().c_str();

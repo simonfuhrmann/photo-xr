@@ -170,7 +170,7 @@ util::StatusOr<std::string> ApiHandler::GetEyeDataGphoto(
 
   // For the right eye, read the XMP from the JPEG, and decode the base64
   // encoded right-eye JPEG data in the XMP.
-  util::LoadJpegOptions options;
+  util::JpegReadOptions options;
   options.include_image_data = false;
   options.include_xmp_data = true;
   ASSIGN_OR_RETURN(util::ImageData image, JpegRead(options, local_path));

@@ -3,7 +3,9 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 
+#include "src/server/net/http_range_request.h"
 #include "src/server/net/http_request.h"
 #include "src/server/net/http_types.h"
 #include "src/server/util/status.h"
@@ -47,8 +49,12 @@ class HttpStaticPageHandler : public HttpHandlerBase {
 // paths are always normalized (dot and dot-dot components are removed) to
 // prevent directory traversal attacks, e.g., "GET /../../etc/passwd HTTP/1.1".
 //
-// Note: File contents are loaded into memory in their entirety before being
-// served to the client, and memory-efficient streaming is not supported.
+// The handler supports HTTP range requests and somewhat efficient streaming
+// to the client, so even large files can be served.
+//
+// The handler does not manage cache control, appropriate headers must be set
+// manually. For example, "Cache-Control: no-cache" to prevent caching, or
+// "Cache-Control: max-age=3600" to allow caching for 1 hour.
 class HttpStaticFileHandler : public HttpHandlerBase {
  public:
   struct Options {
@@ -82,6 +88,11 @@ class HttpStaticFileHandler : public HttpHandlerBase {
   util::Status Handle(HttpRequest& request) const override;
 
  private:
+  util::StatusOr<bool> MaybeHandleRangeRequest(
+      HttpRequest& request, std::string_view local_path) const;
+
+  void SetReplyHeaders(HttpRequest& request, std::string_view local_path) const;
+
   const Options options_;
 };
 

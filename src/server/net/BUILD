@@ -9,6 +9,7 @@ cc_library(
   deps = [
     ":http_request",
     ":http_types",
+    ":http_range_request",
     "//src/server/util:string_utils",
     "//src/server/util:file_utils",
   ],

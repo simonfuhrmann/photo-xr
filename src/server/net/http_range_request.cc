@@ -66,7 +66,7 @@ util::StatusOr<RangeResponse> GenerateRangeResponse(const RangeRequest& request,
     return util::InvalidArgumentError("Invalid range request");
   }
   // Check the input stream.
-  if (input.bad()) {
+  if (input.fail()) {
     return util::UnknownError("Input stream is in bad state");
   }
 
@@ -74,7 +74,7 @@ util::StatusOr<RangeResponse> GenerateRangeResponse(const RangeRequest& request,
   input.seekg(0, std::ios::end);
   const std::streampos total_size = input.tellg();
   if (total_size < 0) {
-    return util::UnknownError("Failed to determine input stream size");
+    return util::UnknownError("Failed to determine stream size");
   }
 
   RangeResponse response;

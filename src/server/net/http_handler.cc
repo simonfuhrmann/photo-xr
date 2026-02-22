@@ -1,9 +1,13 @@
 #include "src/server/net/http_handler.h"
 
 #include <algorithm>
+#include <fstream>
 #include <string>
 #include <string_view>
 
+#include "src/server/net/http_range_request.h"
+#include "src/server/net/http_request.h"
+#include "src/server/net/http_types.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/status_or.h"
 #include "src/server/util/string_utils.h"
@@ -146,15 +150,83 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
     RETURN_IF_ERROR(EnsureRootPathPrefix(local_path, root_dir));
   }
 
-  // Read the full file into memory.
-  ASSIGN_OR_RETURN(const std::string file_contents, util::ReadFile(local_path));
+  // Try to handle the request as a range request. If the request was handled,
+  // true is returned, and this function is done. Otherwise, treat the request
+  // as a full file request.
+  ASSIGN_OR_RETURN(const bool range_request_handled,
+                   MaybeHandleRangeRequest(request, local_path));
+  if (range_request_handled) return util::OkStatus();
+
+  // Treat the request as a full file request. Open file and determine size.
+  std::ifstream input(local_path.data(), std::ios::binary);
+  if (input.fail()) {
+    return util::InternalError("Failed to open file");
+  }
+  input.seekg(0, std::ios::end);
+  const size_t file_size = input.tellg();
+  input.seekg(0, std::ios::beg);
+  if (input.fail()) {
+    return util::InternalError("Failed to determine file size");
+  }
+
+  // Set HTTP status and headers, and send the response.
+  SetReplyHeaders(request, local_path);
   request.SetReplyStatus(HttpStatus::CODE_200_OK);
+  request.SetReplyBody(input, file_size);
+  return request.Reply();
+}
+
+util::StatusOr<bool> HttpStaticFileHandler::MaybeHandleRangeRequest(
+    HttpRequest& request, std::string_view local_path) const {
+  // Check if the client sent a range request. If an error is returned from
+  // ParseRangeRequest, the client send a malformed range request, send error.
+  const util::StatusOr<RangeRequest> range_request = ParseRangeRequest(request);
+  if (!range_request.ok()) {
+    request.SetReplyStatus(HttpStatus::CODE_400_BAD_REQUEST);
+    RETURN_IF_ERROR(request.Reply());
+    return true;
+  }
+
+  // Return early if the server did not send a range request.
+  if (!range_request->is_range_request) return false;
+
+  // At this point, the client sent a range request. Open the stream.
+  std::ifstream input(local_path.data(), std::ios::binary);
+  if (input.fail()) {
+    return util::InternalError("Failed to open file");
+  }
+
+  // Generate a range response, and seek the input stream to request position.
+  ASSIGN_OR_RETURN(RangeResponse range_response,
+                   GenerateRangeResponse(*range_request, input));
+
+  // Check if the range request is unsatisfiable.
+  if (range_response.start == -1 || range_response.end == -1) {
+    request.SetReplyStatus(HttpStatus::CODE_416_RANGE_NOT_SATISFIABLE);
+    request.SetReplyHeader("Accept-Ranges", "bytes");
+    request.SetReplyHeader("Content-Range",
+                           GetContentRangeHeader(range_response));
+    RETURN_IF_ERROR(request.Reply());
+    return true;
+  }
+
+  const int64_t body_size = range_response.end - range_response.start + 1;
+
+  SetReplyHeaders(request, local_path);
+  request.SetReplyStatus(HttpStatus::CODE_206_PARTIAL_CONTENT);
+  request.SetReplyHeader("Content-Range",
+                         GetContentRangeHeader(range_response));
+  request.SetReplyBody(input, body_size);
+  return request.Reply();
+}
+
+void HttpStaticFileHandler::SetReplyHeaders(HttpRequest& request,
+                                            std::string_view local_path) const {
   request.SetReplyContentType(GetContentType(local_path));
   for (const auto& [name, value] : options_.reply_headers) {
     request.SetReplyHeader(name, value);
   }
-  request.SetReplyBody(file_contents, /*copy_data=*/false);
-  return request.Reply();
+  request.SetReplyHeader("Accept-Ranges", "bytes");
 }
 
 }  // namespace net

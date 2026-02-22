@@ -3,6 +3,7 @@
 export enum EntryType {
   ALBUM = 'album',
   PHOTO = 'photo',
+  VIDEO = 'video',
 }
 
 export enum StereoMode {

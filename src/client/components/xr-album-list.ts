@@ -79,15 +79,18 @@ export class XrAlbumList extends LitElement {
   }
 
   private renderEntry(entry: types.AlbumEntry) {
-    if (entry.type === types.EntryType.PHOTO) {
-      return this.renderPhotoEntry(entry);
-    } else if (entry.type === types.EntryType.ALBUM) {
-      return this.renderAlbumEntry(entry);
+    switch (entry.type) {
+      case types.EntryType.PHOTO:
+      case types.EntryType.VIDEO:
+        return this.renderMediaEntry(entry);
+      case types.EntryType.ALBUM:
+        return this.renderAlbumEntry(entry);
+      default: break;
     }
     return nothing;
   }
 
-  private renderPhotoEntry(entry: types.AlbumEntry) {
+  private renderMediaEntry(entry: types.AlbumEntry) {
     const isOpen = entry.name === this.selected;
     const onMediaSelected = this.onMediaSelected.bind(this, entry);
     return html`
@@ -158,6 +161,9 @@ export class XrAlbumList extends LitElement {
 }
 
 function getIconForEntry(entry: types.AlbumEntry) {
+  if (entry.type === types.EntryType.VIDEO) {
+    return 'image:movie-creation';
+  }
   if (entry.stereo === types.StereoMode.GOOGLE_PHOTO) {
     return 'xr:vr180';
   } else if (entry.stereo === types.StereoMode.SIDE_BY_SIDE) {

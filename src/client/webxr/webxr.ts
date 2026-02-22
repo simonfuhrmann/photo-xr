@@ -6,20 +6,23 @@ type ButtonEvent = { source: XRInputSource, button: number, pressed: boolean };
 
 class PhotoXR {
   // The album and media to display in this session.
-  media?: types.SelectedMedia;
+  private media?: types.SelectedMedia;
 
   // THREE global objects.
-  scene: THREE.Scene;
-  renderer: THREE.WebGLRenderer;
-  camera: THREE.PerspectiveCamera;
-  textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
+  private scene: THREE.Scene;
+  private renderer: THREE.WebGLRenderer;
+  private camera: THREE.PerspectiveCamera;
+  private textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
 
   // The current photo in two materials.
-  leftMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
-  rightMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+  private leftMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+  private rightMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+
+  // The video element to play back video media.
+  private videoElement?: HTMLVideoElement;
 
   // VR input handling.
-  vrInput: VRInput;
+  private vrInput: VRInput;
 
   constructor() {
     this.scene = new THREE.Scene();
@@ -58,7 +61,7 @@ class PhotoXR {
 
   setMedia(media: types.SelectedMedia) {
     this.media = media;
-    this.onChangePhoto(0);
+    this.onChangeMedia(0);
   }
 
   bindSession(session: XRSession) {
@@ -106,8 +109,8 @@ class PhotoXR {
     this.scene.add(rightMesh);
   }
 
-  private createStereoTextures(texture: THREE.Texture) {
-    const leftTexture = texture.clone();
+  private createStereoTextures(texture: THREE.Texture): THREE.Texture[] {
+    const leftTexture = texture;
     leftTexture.repeat.set(0.5, 1);
     leftTexture.offset.set(0, 0);
 
@@ -115,14 +118,24 @@ class PhotoXR {
     rightTexture.repeat.set(0.5, 1);
     rightTexture.offset.set(0.5, 0);
 
-    return { leftTexture, rightTexture };
+    return [leftTexture, rightTexture];
   }
 
-  private getMediaRequest(media: types.SelectedMedia) {
+  private getSbsMediaRequest(media: types.SelectedMedia): string {
     const index = media.index;
     const album = media.album;
     const entry = album.entries[index];
     return `/photo/${album.path}/${entry.name}`;
+  }
+
+  private getGooglePhotoMediaRequest(media: types.SelectedMedia): string[] {
+    const index = media.index;
+    const album = media.album;
+    const entry = album.entries[index];
+    return [
+      `/api/photo?path=${album.path}/${entry.name}&eye=left`,
+      `/api/photo?path=${album.path}/${entry.name}&eye=right`,
+    ];
   }
 
   private onSelect(event: Event) {
@@ -139,40 +152,99 @@ class PhotoXR {
     const buttonIndex = ev.detail.button;
     const pressed = ev.detail.pressed;
     if (!pressed) return;
-    if (buttonIndex === 4) this.onChangePhoto(1);
-    if (buttonIndex === 5) this.onChangePhoto(-1);
+    if (buttonIndex === 4) this.onChangeMedia(1);
+    if (buttonIndex === 5) this.onChangeMedia(-1);
   }
 
-  private onChangePhoto(delta: number) {
+  private onChangeMedia(delta: number) {
+    this.cleanupResources();
     if (!this.media) return;
 
     // Advance the media index.
     const album = this.media.album;
     const count = album.entries.length;
     this.media.index = (this.media.index + delta + count) % count;
+    const entry = album.entries[this.media.index];
+    if (entry.type === types.EntryType.PHOTO) {
+      if (entry.stereo === types.StereoMode.GOOGLE_PHOTO) {
+        this.setGooglePhoto(this.media);
+      } else {
+        this.setSideBySidePhoto(this.media);
+      }
+    } else if (entry.type === types.EntryType.VIDEO) {
+      this.setSideBySideVideo(this.media);
+    }
+  }
 
-    // Load the new photo.
-    const url = this.getMediaRequest(this.media);
-    this.textureLoader.load(url, (texture) => {
-      texture.generateMipmaps = true;
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearMipMapLinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-
-      const { leftTexture, rightTexture } =
-        this.createStereoTextures(texture);
-
-      // Dispose old textures to avoid GPU leaks and update to new textures.
-      this.leftMaterial.map?.dispose();
-      this.rightMaterial.map?.dispose();
-      this.leftMaterial.map = leftTexture;
-      this.rightMaterial.map = rightTexture;
-      this.leftMaterial.color = new THREE.Color(0xffffff);
-      this.rightMaterial.color = new THREE.Color(0xffffff);
-      this.leftMaterial.needsUpdate = true;
-      this.rightMaterial.needsUpdate = true;
+  private setGooglePhoto(media: types.SelectedMedia) {
+    const [leftUrl, rightUrl] = this.getGooglePhotoMediaRequest(media);
+    this.textureLoader.load(leftUrl, (texture) => {
+      this.configureTexture(texture);
+      this.setMaterialTexture(this.leftMaterial, texture);
     });
+    this.textureLoader.load(rightUrl, (texture) => {
+      this.configureTexture(texture);
+      this.setMaterialTexture(this.rightMaterial, texture);
+    });
+  }
+
+  private setSideBySidePhoto(media: types.SelectedMedia) {
+    // Load the new photo from URL.
+    const url = this.getSbsMediaRequest(media);
+    this.textureLoader.load(url, (texture) => {
+      this.configureTexture(texture);
+      const [left, right] = this.createStereoTextures(texture);
+      this.setMaterialTexture(this.leftMaterial, left);
+      this.setMaterialTexture(this.rightMaterial, right);
+    });
+  }
+
+  private setSideBySideVideo(media: types.SelectedMedia) {
+    this.videoElement = document.createElement('video');
+    this.videoElement.src = this.getSbsMediaRequest(media);
+    this.videoElement.crossOrigin = 'anonymous';
+    this.videoElement.loop = true;
+    this.videoElement.muted = true;
+    this.videoElement.playsInline = true;
+    this.videoElement.play().then(() => {
+      const texture = new THREE.VideoTexture(this.videoElement);
+      this.configureTexture(texture);
+      const [left, right] = this.createStereoTextures(texture);
+      this.setMaterialTexture(this.leftMaterial, left);
+      this.setMaterialTexture(this.rightMaterial, right);
+    });
+  }
+
+  private setMaterialTexture(
+    material: THREE.MeshBasicMaterial, texture: THREE.Texture) {
+    material.map?.dispose();  // Avoid GPU leaks.
+    material.map = texture;
+    material.color = new THREE.Color(0xffffff);
+    material.needsUpdate = true;
+  }
+
+  private configureTexture(texture: THREE.Texture) {
+    texture.generateMipmaps = true;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearMipMapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+  }
+
+  private cleanupResources() {
+    // Clean up old textures.
+    this.leftMaterial.map?.dispose();
+    this.leftMaterial.map = null;
+    this.rightMaterial.map?.dispose();
+    this.rightMaterial.map = null;
+
+    // Clean up the old video element.
+    if (this.videoElement) {
+      this.videoElement.pause();
+      this.videoElement.src = '';
+      this.videoElement.load();
+      this.videoElement = undefined;
+    }
   }
 }
 

@@ -22,12 +22,9 @@ cc_library(
   deps = [
     ":album_cache",
     ":file_utils",
-    ":stitch_vr180",
-    "//src/server/util:image_io_jpeg",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
     "//src/server/net:http_request",
-    "//src/server/util:base64",
     "//src/server/util:status",
     "//src/server/util:status_or",
     "//src/server/util:json",
@@ -39,6 +36,21 @@ cc_library(
   hdrs = ["file_utils.h"],
   srcs = ["file_utils.cc"],
   deps = [],
+)
+
+cc_library(
+  name = "media_handler",
+  hdrs = ["media_handler.h"],
+  srcs = ["media_handler.cc"],
+  deps = [
+    ":album_cache",
+    ":stitch_vr180",
+    "//src/server/util:image_io_jpeg",
+    "//src/server/util:status",
+    "//src/server/util:status_or",
+    "//src/server/net:http_handler",
+    "//src/server/net:http_request",
+  ],
 )
 
 cc_library(
@@ -62,6 +74,7 @@ cc_library(
   data = ["//src/client:client_files"],
   deps = [
     ":api_handler",
+    ":media_handler",
     "//src/server/net:http_handler",
     "//src/server/net:http_server",
     "//src/server/util:status",

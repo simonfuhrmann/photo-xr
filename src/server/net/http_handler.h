@@ -87,6 +87,13 @@ class HttpStaticFileHandler : public HttpHandlerBase {
   explicit HttpStaticFileHandler(const Options& options);
   util::Status Handle(HttpRequest& request) const override;
 
+ protected:
+  // Get the local file path for the request. This ensures the `path_prefix` is
+  // present, normalizes the request, canonicalizes the path, and ensures the
+  // path is under the root directory if `strict_root` is enabled.
+  util::StatusOr<std::string> GetLocalFilePath(
+      std::string_view http_request_target) const;
+
  private:
   util::StatusOr<bool> MaybeHandleRangeRequest(
       HttpRequest& request, std::string_view local_path) const;

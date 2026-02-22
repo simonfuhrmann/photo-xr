@@ -15,41 +15,6 @@
 namespace net {
 namespace {
 
-// Returns the filename that results from concatenating the root path with the
-// request path. The returned filename is canonicalized and may not contain the
-// root path as prefix if the requested file traverses a symlink.
-util::StatusOr<std::string> GetLocalRequestPath(
-    std::string_view http_request_target,
-    const HttpStaticFileHandler::Options& options) {
-  // Only paths starting with "/" are supported.
-  if (http_request_target.empty() || http_request_target.front() != '/') {
-    return util::InvalidArgumentError("Invalid request path");
-  }
-
-  // Strip query and fragment components from the path.
-  const size_t query_pos = http_request_target.find_first_of('?');
-  const size_t frag_pos = http_request_target.find_first_of('#');
-  const size_t strip_pos = std::min(query_pos, frag_pos);
-  std::string_view req_path = http_request_target.substr(0, strip_pos);
-
-  // If the request path is "/", rewrite it as "/index.html".
-  if (req_path == "/" && !options.root_rewrite.empty()) {
-    req_path = options.root_rewrite;
-  }
-
-  // Normalize request path, concatenate with root dir, and canonicalize.
-  return util::GetCanonicalPath(
-      util::StrCat(options.root_dir, "/", util::GetNormalizedPath(req_path)));
-}
-
-// Returns OK only if `root_path` is a prefix of `req_path`.
-util::Status EnsureRootPathPrefix(std::string_view req_path,
-                                  std::string_view root_path) {
-  return util::HasPrefix(req_path, root_path)
-             ? util::OkStatus()
-             : util::FailedPreconditionError("Request path is not rooted");
-}
-
 // Returns a mime type, by finding `filename`s extension in a mapping from
 // extension to common mime types. This should perhaps be configurable.
 // Initialization (the first call) is not thread safe also not thread safe, and
@@ -129,26 +94,11 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
     return util::InvalidArgumentError("Only GET requests are supported");
   }
 
-  // Ensure the `path_prefix` is present and strip it from the request path.
-  std::string_view req_path = request.GetRequestTarget();
-  if (!util::HasPrefix(req_path, options_.path_prefix)) {
-    return util::NotFoundError("File not found");
-  }
-  req_path.remove_prefix(options_.path_prefix.size());
-
-  // Get the concatenation of the root directory and the normalized request
-  // path, with URI query and fragment components removed, then canonicalized.
-  // This is an existing file in the local file system.
+  // Get the local file path for the request. This removes `path_prefix` from
+  // the request, normalizes the request, canonicalizes the path, and ensures
+  // the path is under the root directory if `strict_root` is enabled.
   ASSIGN_OR_RETURN(const std::string& local_path,
-                   GetLocalRequestPath(req_path, options_));
-
-  // With `strict_root` enabled, make sure the canonical root directory is a
-  // prefix of the request path.
-  if (options_.strict_root) {
-    ASSIGN_OR_RETURN(const std::string root_dir,
-                     util::GetCanonicalPath(options_.root_dir));
-    RETURN_IF_ERROR(EnsureRootPathPrefix(local_path, root_dir));
-  }
+                   GetLocalFilePath(request.GetRequestTarget()));
 
   // Try to handle the request as a range request. If the request was handled,
   // true is returned, and this function is done. Otherwise, treat the request
@@ -174,6 +124,51 @@ util::Status HttpStaticFileHandler::Handle(HttpRequest& request) const {
   request.SetReplyStatus(HttpStatus::CODE_200_OK);
   request.SetReplyBody(input, file_size);
   return request.Reply();
+}
+
+util::StatusOr<std::string> HttpStaticFileHandler::GetLocalFilePath(
+    std::string_view http_request_target) const {
+  // Ensure the `path_prefix` is present and strip it from the request path.
+  std::string_view req_path = http_request_target;
+  if (!util::HasPrefix(req_path, options_.path_prefix)) {
+    return util::NotFoundError("File not found");
+  }
+  req_path.remove_prefix(options_.path_prefix.size());
+
+  // Only paths starting with "/" are supported.
+  if (req_path.empty() || req_path.front() != '/') {
+    return util::InvalidArgumentError("Invalid request path");
+  }
+
+  // Strip query and fragment components from the path.
+  const size_t query_pos = req_path.find_first_of('?');
+  const size_t frag_pos = req_path.find_first_of('#');
+  const size_t strip_pos = std::min(query_pos, frag_pos);
+  req_path = req_path.substr(0, strip_pos);
+
+  // If the request path is "/", rewrite it as "/index.html".
+  if (req_path == "/" && !options_.root_rewrite.empty()) {
+    req_path = options_.root_rewrite;
+  }
+
+  // Normalize request path, concatenate with root dir, and canonicalize.
+  // This is now an existing file name in the local file system.
+  ASSIGN_OR_RETURN(
+      const std::string& local_path,
+      util::GetCanonicalPath(util::StrCat(options_.root_dir, "/",
+                                          util::GetNormalizedPath(req_path))));
+
+  // With `strict_root` enabled, make sure the canonical root directory is a
+  // prefix of the request path.
+  if (options_.strict_root) {
+    ASSIGN_OR_RETURN(const std::string root_dir,
+                     util::GetCanonicalPath(options_.root_dir));
+    if (!util::HasPrefix(local_path, root_dir)) {
+      return util::FailedPreconditionError("Request path is not rooted");
+    }
+  }
+
+  return local_path;
 }
 
 util::StatusOr<bool> HttpStaticFileHandler::MaybeHandleRangeRequest(

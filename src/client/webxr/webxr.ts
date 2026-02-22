@@ -126,15 +126,7 @@ class PhotoXR {
     const index = media.index;
     const album = media.album;
     const entry = album.entries[index];
-    return stringUtils.joinPaths('/photo', album.path, entry.name);
-  }
-
-  private getGooglePhotoMediaRequest(media: types.SelectedMedia): string {
-    const index = media.index;
-    const album = media.album;
-    const entry = album.entries[index];
-    const path = stringUtils.joinPaths(album.path, entry.name);
-    return `/api/photo?path=${path}`;
+    return stringUtils.joinPaths('/media', album.path, entry.name);
   }
 
   private onSelect(event: Event) {
@@ -165,24 +157,10 @@ class PhotoXR {
     this.media.index = (this.media.index + delta + count) % count;
     const entry = album.entries[this.media.index];
     if (entry.type === types.EntryType.PHOTO) {
-      if (entry.stereo === types.StereoMode.GOOGLE_PHOTO) {
-        this.setGooglePhoto(this.media);
-      } else {
-        this.setSideBySidePhoto(this.media);
-      }
+      this.setSideBySidePhoto(this.media);
     } else if (entry.type === types.EntryType.VIDEO) {
       this.setSideBySideVideo(this.media);
     }
-  }
-
-  private setGooglePhoto(media: types.SelectedMedia) {
-    const url = this.getGooglePhotoMediaRequest(media);
-    this.textureLoader.load(url, (texture) => {
-      this.configureTexture(texture);
-      const [left, right] = this.createStereoTextures(texture);
-      this.setMaterialTexture(this.leftMaterial, left);
-      this.setMaterialTexture(this.rightMaterial, right);
-    });
   }
 
   private setSideBySidePhoto(media: types.SelectedMedia) {

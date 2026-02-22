@@ -26,46 +26,31 @@ namespace server {
 //     "entries": [
 //       { type: "album", "name": "Iceland" },
 //       { type: "album", "name": "Japan" },
-//       { type: "photo", "name": "cover.jpg", "eyes": "gphoto" }
+//       { type: "photo", "name": "cover.jpg", "stereo": "gphoto" }
 //     ]
 //   }
 //
-// Currently supported layouts for photos are
+// Currently supported stereo layouts for media are
 //
 // - "gphoto": Google's VR photo format, which has the left eye in the JPEG
 //   data, the right eye in the XMP metadata as base64-encoded JPEG.
 //   https://developers.google.com/vr/reference/cardboard-camera-vr-photo-format
 // - "sbs": Side-by-side format, where the left and right eyes are stored in the
-//   same JPEG image, left and right half are the cooresponding eye.
+//   same JPEG image, left and right half are the corresponding eye.
 //
-// The renderer in the client can map each side of an SBS image to a texture
-// for rendering. However, for separate images, the client does not have easy
-// access to the XMP metadata; thus the API offers requests to get the left and
-// right eye images separately.
-//
-//   GET /api/photo?path=Travel/Iceland/cover.jpg&eye=left
-//   GET /api/photo?path=Travel/Iceland/cover.jpg&eye=right
-//
-// This API request will fail if the JPEG does not contain embedded XMP data.
 class ApiHandler : public net::HttpHandlerBase {
  public:
   struct Options {
-    std::string photos_root;
+    std::string media_root;
     std::map<std::string, std::string> reply_headers;
   };
 
-  ApiHandler(const Options& options);
+  explicit ApiHandler(const Options& options);
 
  protected:
   util::Status Handle(net::HttpRequest& request) const override;
   util::Status HandleAlbumRequest(net::HttpRequest& request,
                                   const net::HttpReqTarget& target) const;
-  util::Status HandlePhotoRequest(net::HttpRequest& request,
-                                  const net::HttpReqTarget& target) const;
-  util::StatusOr<std::string> GetEyeDataGphoto(const std::string& photo_data,
-                                               bool is_left_eye) const;
-  util::StatusOr<std::string> GetEyeDataSbs(const std::string& photo_data,
-                                            bool is_left_eye) const;
 
  private:
   util::StatusOr<std::string> GetLocalPath(std::string_view req_path) const;

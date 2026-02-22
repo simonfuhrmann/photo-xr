@@ -5,6 +5,7 @@
 #include "src/server/net/http_server.h"
 #include "src/server/util/status.h"
 #include "src/server/api_handler.h"
+#include "src/server/media_handler.h"
 
 namespace server {
 
@@ -14,7 +15,7 @@ class WebServer {
     std::string listen_address = "127.0.0.1";
     int listen_port = 8080;
     int num_threads = 4;
-    std::string photos_root;
+    std::string media_root;
   };
 
   WebServer(const Options& options);
@@ -31,7 +32,7 @@ class WebServer {
   net::HttpServer http_server_;
   LoggerHandler logger_handler_;
   ApiHandler api_handler_;
-  net::HttpStaticFileHandler photo_handler_;
+  MediaHandler media_handler_;
   net::HttpStaticFileHandler file_handler_;
   net::HttpStaticPageHandler error_handler_;
 };

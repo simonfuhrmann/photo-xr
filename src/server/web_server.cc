@@ -16,7 +16,7 @@ net::HttpServer::Options GetHttpServerOptions(
 
 ApiHandler::Options GetApiHandlerOptions(const WebServer::Options& options) {
   ApiHandler::Options api_options;
-  api_options.photos_root = options.photos_root;
+  api_options.media_root = options.media_root;
   api_options.reply_headers["Access-Control-Allow-Origin"] = "*";
   api_options.reply_headers["X-Content-Type-Options"] = "nosniff";
   return api_options;
@@ -26,15 +26,14 @@ net::HttpStaticPageHandler::Options GetErrorHandlerOptions() {
   return net::HttpStaticPageHandler::Options();
 }
 
-net::HttpStaticFileHandler::Options GetPhotoHandlerOptions(
+MediaHandler::Options GetMediaHandlerOptions(
     const WebServer::Options& options) {
-  net::HttpStaticFileHandler::Options photo_options;
-  photo_options.root_dir = options.photos_root;
-  photo_options.path_prefix = "/photo";
-  photo_options.reply_headers["Cache-Control"] = "public, max-age=3600";
-  photo_options.reply_headers["Access-Control-Allow-Origin"] = "*";
-  photo_options.reply_headers["X-Content-Type-Options"] = "nosniff";
-  return photo_options;
+  MediaHandler::Options media_options;
+  media_options.media_root = options.media_root;
+  media_options.reply_headers["Cache-Control"] = "public, max-age=3600";
+  media_options.reply_headers["Access-Control-Allow-Origin"] = "*";
+  media_options.reply_headers["X-Content-Type-Options"] = "nosniff";
+  return media_options;
 }
 
 net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
@@ -49,12 +48,12 @@ net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
 WebServer::WebServer(const Options& options)
     : http_server_(GetHttpServerOptions(options)),
       api_handler_(GetApiHandlerOptions(options)),
-      photo_handler_(GetPhotoHandlerOptions(options)),
+      media_handler_(GetMediaHandlerOptions(options)),
       file_handler_(GetFileHandlerOptions()),
       error_handler_(GetErrorHandlerOptions()) {
   http_server_.RegisterHandler(&logger_handler_);
   http_server_.RegisterHandler(&api_handler_);
-  http_server_.RegisterHandler(&photo_handler_);
+  http_server_.RegisterHandler(&media_handler_);
   http_server_.RegisterHandler(&file_handler_);
   http_server_.RegisterHandler(&error_handler_);
 }

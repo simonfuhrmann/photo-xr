@@ -41,6 +41,20 @@ cc_library(
 )
 
 cc_library(
+  name = "stitch_vr180",
+  hdrs = ["stitch_vr180.h"],
+  srcs = ["stitch_vr180.cc"],
+  deps = [
+    "//src/server/util:base64",
+    "//src/server/util:image_io_jpeg",
+    "//src/server/util:status_or",
+    "//src/server/util:status",
+    "//src/server/util:string_utils",
+  ],
+)
+
+
+cc_library(
   name = "web_server",
   hdrs = ["web_server.h"],
   srcs = ["web_server.cc"],
@@ -51,4 +65,17 @@ cc_library(
     "//src/server/net:http_server",
     "//src/server/util:status",
   ],
+)
+
+# Tests.
+
+cc_test(
+  name = "stitch_vr180_test",
+  srcs = ["stitch_vr180_test.cc"],
+  size = "small",
+  deps = [
+    ":stitch_vr180",
+    "//src/server/test:tinytest",
+  ],
+  linkopts = ["-ljpeg"],
 )

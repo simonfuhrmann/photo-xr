@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <string_view>
 
 #include "src/server/util/status.h"
@@ -35,12 +36,12 @@ void JpegErrorExit(j_common_ptr cinfo) {
   longjmp(err->setjmp_buffer, 1);
 }
 
-void InitSource(j_decompress_ptr cinfo) {
+void IstreamSourceInit(j_decompress_ptr cinfo) {
   JpegIStreamSource* src = reinterpret_cast<JpegIStreamSource*>(cinfo->src);
   src->start_of_file = true;
 }
 
-boolean FillInputBuffer(j_decompress_ptr cinfo) {
+boolean IstreamFillInputBuffer(j_decompress_ptr cinfo) {
   JpegIStreamSource* src = reinterpret_cast<JpegIStreamSource*>(cinfo->src);
 
   src->stream->read(reinterpret_cast<char*>(src->buffer), sizeof(src->buffer));
@@ -65,7 +66,7 @@ boolean FillInputBuffer(j_decompress_ptr cinfo) {
   return TRUE;
 }
 
-void SkipInputData(j_decompress_ptr cinfo, long num_bytes) {
+void IstreamSkipInputData(j_decompress_ptr cinfo, long num_bytes) {
   if (num_bytes <= 0) return;
   JpegIStreamSource* src = reinterpret_cast<JpegIStreamSource*>(cinfo->src);
 
@@ -86,8 +87,8 @@ void TermSource(j_decompress_ptr cinfo) {
   // Nothing to do.
 }
 
-// This naming style mimics JPEG's jpeg_stdio_src and jpeg_mem_src.
-void jpeg_istream_src(j_decompress_ptr cinfo, std::istream& input) {
+// Sets up a JPEG source for std::istream.
+void JpegSrcIstream(j_decompress_ptr cinfo, std::istream& input) {
   if (cinfo->src == nullptr) {
     cinfo->src = (jpeg_source_mgr*)(*cinfo->mem->alloc_small)(
         (j_common_ptr)cinfo, JPOOL_PERMANENT, sizeof(JpegIStreamSource));
@@ -95,9 +96,9 @@ void jpeg_istream_src(j_decompress_ptr cinfo, std::istream& input) {
 
   JpegIStreamSource* src = reinterpret_cast<JpegIStreamSource*>(cinfo->src);
   src->stream = &input;
-  src->pub.init_source = InitSource;
-  src->pub.fill_input_buffer = FillInputBuffer;
-  src->pub.skip_input_data = SkipInputData;
+  src->pub.init_source = IstreamSourceInit;
+  src->pub.fill_input_buffer = IstreamFillInputBuffer;
+  src->pub.skip_input_data = IstreamSkipInputData;
   src->pub.resync_to_restart = jpeg_resync_to_restart;  // default
   src->pub.term_source = TermSource;
   src->pub.bytes_in_buffer = 0;
@@ -220,19 +221,9 @@ util::StatusOr<ImageData> ReadXmpMetadata(jpeg_saved_marker_ptr marker_list) {
   return image_data;
 }
 
-}  // namespace
-
-util::StatusOr<ImageData> JpegRead(const LoadJpegOptions& options,
-                                   std::string_view filename) {
-  std::ifstream in(std::string(filename), std::ios::binary);
-  if (!in.good()) {
-    return util::UnavailableError(util::StrCat("Cannot open ", filename));
-  }
-  return JpegRead(options, in);
-}
-
-util::StatusOr<ImageData> JpegRead(const LoadJpegOptions& options,
-                                   std::istream& input) {
+util::StatusOr<ImageData> JpegReadInternal(
+    const JpegReadOptions& options,
+    std::function<void(jpeg_decompress_struct*)> set_jpeg_src) {
   // Declare C++ structs before `setjmp` is called to ensure destruction in
   // case of jpeglib errors.
   ImageData xmp_metadata;
@@ -252,7 +243,7 @@ util::StatusOr<ImageData> JpegRead(const LoadJpegOptions& options,
   }
 
   jpeg_create_decompress(&cinfo);
-  jpeg_istream_src(&cinfo, input);
+  set_jpeg_src(&cinfo);
 
   // Request to save APP1 (XMP) metadata if requested.
   if (options.include_xmp_data) {
@@ -299,8 +290,36 @@ util::StatusOr<ImageData> JpegRead(const LoadJpegOptions& options,
   }
   jpeg_destroy_decompress(&cinfo);
 
-  input.clear();
   return image_data;
+}
+
+}  // namespace
+
+util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
+                                   std::string_view filename) {
+  std::ifstream in(std::string(filename), std::ios::binary);
+  if (!in.good()) {
+    return util::UnavailableError(util::StrCat("Cannot open ", filename));
+  }
+  return JpegRead(options, in);
+}
+
+util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
+                                   const char* data, size_t size) {
+  const auto set_jpeg_src = [&](jpeg_decompress_struct* cinfo) {
+    jpeg_mem_src(cinfo,
+                 reinterpret_cast<const unsigned char*>(data),
+                 static_cast<unsigned long>(size));
+  };
+  return JpegReadInternal(options, set_jpeg_src);
+}
+
+util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
+                                   std::istream& input) {
+  const auto set_jpeg_src = [&](jpeg_decompress_struct* cinfo) {
+    JpegSrcIstream(cinfo, input);
+  };
+  return JpegReadInternal(options, set_jpeg_src);
 }
 
 }  // namespace util

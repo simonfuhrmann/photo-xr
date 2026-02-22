@@ -1,12 +1,14 @@
 #include "src/server/util/image_io_jpeg.h"
 
-#include <fstream>   //TMP
-#include <iostream>  // TMP
+#include <functional>
+#include <sstream>
+#include <string>
 
 #include "src/server/test/tinytest.h"
 
 namespace util {
 
+// This is a 2x2 pixel progressive JPEG.
 const char kTestJpegData[] =
     "\xFF\xD8\xFF\xE0\x00\x10\x4A\x46\x49\x46\x00\x01\x01\x01\x01\x2C"
     "\x01\x2C\x00\x00\xFF\xDB\x00\x43\x00\x01\x01\x01\x01\x01\x01\x01"
@@ -52,14 +54,24 @@ const char kTestJpegData[] =
     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\xFF\xDA\x00\x08"
     "\x01\x01\x00\x01\x3F\x10\x40\xEF\xB1\x19\x2A\xE5\x05\x0A\xAA\xAD"
     "\xFF\xD9";
+constexpr size_t kTestJpegSize = sizeof(kTestJpegData) - 1;
 
-TEST(JpegReaderWriter, JpegRead) {
-  std::string test_data(kTestJpegData, sizeof(kTestJpegData) - 1);
+TEST(ImageIOJpeg, JpegRead) {
+  const std::string test_data(kTestJpegData, kTestJpegSize);
+
+  std::function<StatusOr<ImageData>(const JpegReadOptions&)> istream_loader =
+      [&](const JpegReadOptions& options) {
+        std::istringstream input(test_data);
+        return JpegRead(options, input);
+      };
+  std::function<StatusOr<ImageData>(const JpegReadOptions&)> memory_loader =
+      [&](const JpegReadOptions& options) {
+        return JpegRead(options, test_data.data(), test_data.size());
+      };
 
   // Test with default options that only read the image.
-  {
-    std::istringstream input(test_data);
-    const auto result = JpegRead(LoadJpegOptions(), input);
+  for (const auto& loader : {istream_loader, memory_loader}) {
+    const StatusOr<ImageData> result = loader(JpegReadOptions());
     ASSERT_TRUE(result.ok());
     const ImageData& image_data = result.value();
     EXPECT_EQ(image_data.width, 2);
@@ -86,12 +98,11 @@ TEST(JpegReaderWriter, JpegRead) {
   }
 
   // Test with options that only read XMP metadata.
-  {
-    std::istringstream input(test_data);
-    LoadJpegOptions options;
+  for (const auto& loader : {istream_loader, memory_loader}) {
+    JpegReadOptions options;
     options.include_image_data = false;
     options.include_xmp_data = true;
-    const auto result = JpegRead(options, input);
+    const StatusOr<ImageData> result = loader(options);
     ASSERT_TRUE(result.ok());
     const ImageData& image_data = result.value();
     EXPECT_EQ(image_data.width, 2);
@@ -103,26 +114,10 @@ TEST(JpegReaderWriter, JpegRead) {
   }
 }
 
-TEST(JpegReaderWriter, JpegReadReadFile) {
-  LoadJpegOptions options;
-  options.include_image_data = true;
-  options.include_xmp_data = true;
-  // std::string_view fname = "/data/pics/vr_photos/yi_camera/YI3D0089.jpg";
-  std::string_view fname =
-      "/data/pics/vr_photos/lenovo_mirage/20260218-172412007.vr.jpg";
-  util::StatusOr<ImageData> image = JpegRead(options, fname);
-  if (!image.ok()) {
-    std::cerr << "Error reading JPEG: " << image.status().message() << "\n";
-  } else {
-    std::ofstream out("/tmp/xmp_data.xml");
-    out.write(image->xmp_metadata.data(), image->xmp_metadata.size());
-    out.close();
-
-    std::ofstream out_ext("/tmp/xmp_ext_data.xml");
-    out_ext.write(image->xmp_ext_metadata.data(),
-                  image->xmp_ext_metadata.size());
-    out_ext.close();
-  }
+TEST(ImageIOJpeg, JpegReadInvalidData) {
+  const char garbage[] = "not a jpeg";
+  auto result = JpegRead(JpegReadOptions(), garbage, sizeof(garbage));
+  EXPECT_FALSE(result.ok());
 }
 
 }  // namespace util

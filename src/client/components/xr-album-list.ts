@@ -8,6 +8,7 @@ import 'oxygen-mdc/oxy-icons-image'
 import '../icons/oxy-icons-xr'
 import * as api from '../modules/server_api';
 import * as types from '../modules/client_types';
+import * as stringUtils from '../modules/string_utils';
 
 @customElement('xr-album-list')
 export class XrAlbumList extends LitElement {
@@ -124,7 +125,7 @@ export class XrAlbumList extends LitElement {
     }
     return html`
       <xr-album-list
-        path="${joinPaths(this.path, entry.name)}"
+        path="${stringUtils.joinPaths(this.path, entry.name)}"
         @loading=${onAlbumLoading}>
       </xr-album-list>
     `;
@@ -170,11 +171,4 @@ function getIconForEntry(entry: types.AlbumEntry) {
     return 'xr:sbs';
   }
   return 'image:photo';
-}
-
-function joinPaths(path1: string, path2: string) {
-  if (path1.endsWith('/') || path2.startsWith('/')) {
-    return `${path1}${path2}`;
-  }
-  return `${path1}/${path2}`;
 }

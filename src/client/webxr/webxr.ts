@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import { VRInput } from './vr_input';
+import * as stringUtils from '../modules/string_utils';
 
 type ButtonEvent = { source: XRInputSource, button: number, pressed: boolean };
 
@@ -125,17 +126,15 @@ class PhotoXR {
     const index = media.index;
     const album = media.album;
     const entry = album.entries[index];
-    return `/photo/${album.path}/${entry.name}`;
+    return stringUtils.joinPaths('/photo', album.path, entry.name);
   }
 
-  private getGooglePhotoMediaRequest(media: types.SelectedMedia): string[] {
+  private getGooglePhotoMediaRequest(media: types.SelectedMedia): string {
     const index = media.index;
     const album = media.album;
     const entry = album.entries[index];
-    return [
-      `/api/photo?path=${album.path}/${entry.name}&eye=left`,
-      `/api/photo?path=${album.path}/${entry.name}&eye=right`,
-    ];
+    const path = stringUtils.joinPaths(album.path, entry.name);
+    return `/api/photo?path=${path}`;
   }
 
   private onSelect(event: Event) {
@@ -177,19 +176,16 @@ class PhotoXR {
   }
 
   private setGooglePhoto(media: types.SelectedMedia) {
-    const [leftUrl, rightUrl] = this.getGooglePhotoMediaRequest(media);
-    this.textureLoader.load(leftUrl, (texture) => {
+    const url = this.getGooglePhotoMediaRequest(media);
+    this.textureLoader.load(url, (texture) => {
       this.configureTexture(texture);
-      this.setMaterialTexture(this.leftMaterial, texture);
-    });
-    this.textureLoader.load(rightUrl, (texture) => {
-      this.configureTexture(texture);
-      this.setMaterialTexture(this.rightMaterial, texture);
+      const [left, right] = this.createStereoTextures(texture);
+      this.setMaterialTexture(this.leftMaterial, left);
+      this.setMaterialTexture(this.rightMaterial, right);
     });
   }
 
   private setSideBySidePhoto(media: types.SelectedMedia) {
-    // Load the new photo from URL.
     const url = this.getSbsMediaRequest(media);
     this.textureLoader.load(url, (texture) => {
       this.configureTexture(texture);

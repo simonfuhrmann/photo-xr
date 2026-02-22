@@ -9,6 +9,7 @@
 #include "src/server/album_cache.h"
 #include "src/server/file_utils.h"
 #include "src/server/net/http_req_target.h"
+#include "src/server/stitch_vr180.h"
 #include "src/server/util/base64.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/image_io_jpeg.h"
@@ -125,38 +126,32 @@ util::Status ApiHandler::HandleAlbumRequest(
 
 util::Status ApiHandler::HandlePhotoRequest(
     net::HttpRequest& request, const net::HttpReqTarget& target) const {
-  const std::string_view eye = target.GetParam("eye");
-  if (eye != "left" && eye != "right") {
-    return util::AbortedError("Invalid eye parameter");
-  }
   // Get the local path of the photo, and read into memory.
   const std::string_view req_path = target.GetParam("path");
   ASSIGN_OR_RETURN(const std::string local_path, GetLocalPath(req_path));
 
-  // Check which type of stereo the photo is.
-  const fs::path parent_dir = fs::path(local_path).parent_path();
-  AlbumCache album_cache(parent_dir.string());
-  AlbumCache::CacheData cache_data =
-      album_cache.Get(fs::path(local_path).filename().string());
+  // Read the JPEG including XMP metadata.
+  util::JpegReadOptions options;
+  options.include_image_data = true;
+  options.include_xmp_data = true;
+  ASSIGN_OR_RETURN(util::ImageData image, util::JpegRead(options, local_path));
 
-  // Get the corresponding eye data based on the stereo format.
-  std::string eye_data;
-  const bool is_left_eye = (eye == "left");
-  if (cache_data.stereo_type == "gphoto") {
-    ASSIGN_OR_RETURN(eye_data, GetEyeDataGphoto(local_path, is_left_eye));
-  } else if (cache_data.stereo_type == "sbs") {
-    ASSIGN_OR_RETURN(eye_data, GetEyeDataSbs(local_path, is_left_eye));
-  } else {
-    return util::AbortedError("Unsupported photo format");
-  }
+  // Stitch the image to a side-by-size equirect.
+  ASSIGN_OR_RETURN(util::ImageData stitched_image, StitchVr180(image));
 
+  // Encode the stitched image back to JPEG format.
+  util::JpegWriteOptions write_options;
+  write_options.quality = 90;
+  std::string jpeg_data;
+  RETURN_IF_ERROR(util::JpegWrite(write_options, stitched_image, jpeg_data));
+  
   // Send the response to the client.
   request.SetReplyStatus(net::HttpStatus::CODE_200_OK);
   request.SetReplyContentType("image/jpeg");
   for (const auto& [name, value] : options_.reply_headers) {
     request.SetReplyHeader(name, value);
   }
-  request.SetReplyBody(eye_data, /*copy_data=*/false);
+  request.SetReplyBody(jpeg_data, /*copy_data=*/false);
   return request.Reply();
 }
 

@@ -22,6 +22,7 @@ cc_library(
   deps = [
     ":album_cache",
     ":file_utils",
+    ":stitch_vr180",
     "//src/server/util:image_io_jpeg",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",

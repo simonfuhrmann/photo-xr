@@ -18,6 +18,7 @@ namespace util {
 namespace {
 
 constexpr size_t kMaxXmpSize = 100 * 1024 * 1024;  // 100 MiB
+constexpr size_t kStreamBufferSize = 16 * 1024;  // 16 KiB
 
 struct JpegErrorManager {
   jpeg_error_mgr pub;
@@ -27,8 +28,14 @@ struct JpegErrorManager {
 struct JpegIStreamSource {
   jpeg_source_mgr pub;
   std::istream* stream = nullptr;
-  JOCTET buffer[4096];
+  JOCTET buffer[kStreamBufferSize];
   bool start_of_file = true;
+};
+
+struct JpegOStreamDest {
+  jpeg_destination_mgr pub;
+  std::ostream* stream = nullptr;
+  JOCTET buffer[kStreamBufferSize];
 };
 
 void JpegErrorExit(j_common_ptr cinfo) {
@@ -103,6 +110,49 @@ void JpegSrcIstream(j_decompress_ptr cinfo, std::istream& input) {
   src->pub.term_source = TermSource;
   src->pub.bytes_in_buffer = 0;
   src->pub.next_input_byte = nullptr;
+}
+
+void OstreamInitDestination(j_compress_ptr cinfo) {
+  JpegOStreamDest* dest = reinterpret_cast<JpegOStreamDest*>(cinfo->dest);
+  dest->pub.next_output_byte = dest->buffer;
+  dest->pub.free_in_buffer = sizeof(dest->buffer);
+}
+
+boolean OstreamEmptyOutputBuffer(j_compress_ptr cinfo) {
+  JpegOStreamDest* dest = reinterpret_cast<JpegOStreamDest*>(cinfo->dest);
+  dest->stream->write(reinterpret_cast<const char*>(dest->buffer),
+                      sizeof(dest->buffer));
+  if (!dest->stream->good()) {
+    ERREXIT(cinfo, JERR_FILE_WRITE);
+  }
+  dest->pub.next_output_byte = dest->buffer;
+  dest->pub.free_in_buffer = sizeof(dest->buffer);
+  return TRUE;
+}
+
+void OstreamTermDestination(j_compress_ptr cinfo) {
+  JpegOStreamDest* dest = reinterpret_cast<JpegOStreamDest*>(cinfo->dest);
+  const size_t datacount = sizeof(dest->buffer) - dest->pub.free_in_buffer;
+  if (datacount > 0) {
+    dest->stream->write(reinterpret_cast<const char*>(dest->buffer), datacount);
+  }
+  dest->stream->flush();
+  if (!dest->stream->good()) {
+    ERREXIT(cinfo, JERR_FILE_WRITE);
+  }
+}
+
+void JpegDestOstream(j_compress_ptr cinfo, std::ostream& output) {
+  if (cinfo->dest == nullptr) {
+    cinfo->dest = (jpeg_destination_mgr*)(*cinfo->mem->alloc_small)(
+        (j_common_ptr)cinfo, JPOOL_PERMANENT, sizeof(JpegOStreamDest));
+  }
+
+  JpegOStreamDest* dest = reinterpret_cast<JpegOStreamDest*>(cinfo->dest);
+  dest->stream = &output;
+  dest->pub.init_destination = OstreamInitDestination;
+  dest->pub.empty_output_buffer = OstreamEmptyOutputBuffer;
+  dest->pub.term_destination = OstreamTermDestination;
 }
 
 uint32_t ReadBigEndian(const uint8_t* data) {
@@ -293,12 +343,62 @@ util::StatusOr<ImageData> JpegReadInternal(
   return image_data;
 }
 
+util::Status JpegWriteInternal(
+    const JpegWriteOptions& options, const ImageData& image,
+    std::function<void(jpeg_compress_struct*)> set_jpeg_dest) {
+  if (image.channels != 1 && image.channels != 3) {
+    return util::InvalidArgumentError("Unsupported number of channels");
+  }
+  if (image.width <= 0 || image.height <= 0) {
+    return util::InvalidArgumentError("Invalid image dimensions");
+  }
+  const size_t row_stride = static_cast<size_t>(image.width) * image.channels;
+  const size_t num_values = row_stride * image.height;
+  if (image.data.size() != num_values) {
+    return util::InvalidArgumentError("Image data size mismatch");
+  }
+
+  jpeg_compress_struct cinfo{};
+  JpegErrorManager jerr;
+  cinfo.err = jpeg_std_error(&jerr.pub);
+  jerr.pub.error_exit = JpegErrorExit;
+  if (setjmp(jerr.setjmp_buffer)) {
+    jpeg_destroy_compress(&cinfo);
+    char buffer[JMSG_LENGTH_MAX];
+    (*cinfo.err->format_message)((j_common_ptr)&cinfo, buffer);
+    return util::InternalError(buffer);
+  }
+
+  jpeg_create_compress(&cinfo);
+  set_jpeg_dest(&cinfo);
+
+  // Basic image parameters
+  cinfo.image_width = image.width;
+  cinfo.image_height = image.height;
+  cinfo.input_components = image.channels;
+  cinfo.in_color_space = (image.channels == 3) ? JCS_RGB : JCS_GRAYSCALE;
+
+  jpeg_set_defaults(&cinfo);
+  jpeg_set_quality(&cinfo, options.quality, TRUE);
+  jpeg_start_compress(&cinfo, TRUE);
+
+  while (cinfo.next_scanline < cinfo.image_height) {
+    JSAMPROW row =
+        const_cast<JSAMPROW>(&image.data[cinfo.next_scanline * row_stride]);
+    jpeg_write_scanlines(&cinfo, &row, 1);
+  }
+
+  jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
+  return util::OkStatus();
+}
+
 }  // namespace
 
 util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
                                    std::string_view filename) {
   std::ifstream in(std::string(filename), std::ios::binary);
-  if (!in.good()) {
+  if (in.fail()) {
     return util::UnavailableError(util::StrCat("Cannot open ", filename));
   }
   return JpegRead(options, in);
@@ -307,8 +407,7 @@ util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
 util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
                                    const char* data, size_t size) {
   const auto set_jpeg_src = [&](jpeg_decompress_struct* cinfo) {
-    jpeg_mem_src(cinfo,
-                 reinterpret_cast<const unsigned char*>(data),
+    jpeg_mem_src(cinfo, reinterpret_cast<const unsigned char*>(data),
                  static_cast<unsigned long>(size));
   };
   return JpegReadInternal(options, set_jpeg_src);
@@ -320,6 +419,51 @@ util::StatusOr<ImageData> JpegRead(const JpegReadOptions& options,
     JpegSrcIstream(cinfo, input);
   };
   return JpegReadInternal(options, set_jpeg_src);
+}
+
+util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
+                       std::string_view filename) {
+  std::ofstream out(std::string(filename), std::ios::binary);
+  if (out.fail()) {
+    return util::UnavailableError(util::StrCat("Cannot open ", filename));
+  }
+  RETURN_IF_ERROR(JpegWrite(options, image, out));
+  if (!out.good()) {
+    return util::InternalError("Failed while writing JPEG file");
+  }
+  return util::OkStatus();
+}
+
+util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
+                       std::ostream& output) {
+  const auto set_jpeg_dest = [&](jpeg_compress_struct* cinfo) {
+    JpegDestOstream(cinfo, output);
+  };
+  RETURN_IF_ERROR(JpegWriteInternal(options, image, set_jpeg_dest));
+  if (output.fail()) {
+    return util::InternalError("Failed while writing JPEG stream");
+  }
+  return util::OkStatus();
+}
+
+util::Status JpegWrite(const JpegWriteOptions& options, const ImageData& image,
+                       std::vector<uint8_t>& output) {
+  unsigned char* mem = nullptr;
+  unsigned long mem_size = 0;
+  const auto set_jpeg_dest = [&](jpeg_compress_struct* cinfo) {
+    jpeg_mem_dest(cinfo, &mem, &mem_size);
+  };
+  const util::Status status = JpegWriteInternal(options, image, set_jpeg_dest);
+  if (!status.ok()) {
+    if (mem != nullptr) free(mem);  // required by jpeg_mem_dest
+    return status;
+  }
+  if (mem == nullptr) {
+    return util::InternalError("JPEG compression failed: no output");
+  }
+  output.assign(mem, mem + mem_size);
+  free(mem);  // required by jpeg_mem_dest
+  return util::OkStatus();
 }
 
 }  // namespace util

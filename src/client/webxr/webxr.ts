@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import { VRInput } from './vr_input';
-import * as stringUtils from '../modules/string_utils';
+import { MediaViewer } from './media_viewer';
 
 type ButtonEvent = { source: XRInputSource, button: number, pressed: boolean };
 
@@ -13,31 +13,17 @@ class PhotoXR {
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
   private camera: THREE.PerspectiveCamera;
-  private textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
-
-  // The current photo in two materials.
-  private leftMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
-  private rightMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
-
-  // The video element to play back video media.
-  private videoElement?: HTMLVideoElement;
 
   // VR input handling.
   private vrInput: VRInput;
 
+  // The renderer for the eyes geometry.
+  private mediaViewer: MediaViewer;
+
   constructor() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
-
-    // Create a camera. The FOV and aspect ratio is overridden by WebXR.
-    const aspect = window.innerWidth / window.innerHeight;
-    const zNear = 0.1;
-    const zFar = 100.0;
-    this.camera = new THREE.PerspectiveCamera(/*fov=*/70, aspect, zNear, zFar);
-
-    // Enable the hemisphere layers for this camera (default is 0 only).
-    this.camera.layers.enable(1);
-    this.camera.layers.enable(2);
+    this.camera = this.createCamera();
 
     // Set up the renderer and enable WebXR. Disable foveation since it causes
     // blurriness at the bottom of the rendering. Increasing the framebuffer
@@ -56,8 +42,7 @@ class PhotoXR {
     this.vrInput.addEventListener('squeeze', this.onSqueeze.bind(this));
     this.vrInput.addEventListener('button', this.onButton.bind(this));
 
-    // Create the half-sphere geometry for the left and right eye.
-    this.createEyesGeometry();
+    this.mediaViewer = new MediaViewer(this.renderer, this.scene);
   }
 
   setMedia(media: types.SelectedMedia) {
@@ -65,7 +50,7 @@ class PhotoXR {
     this.onChangeMedia(0);
   }
 
-  bindSession(session: XRSession) {
+  startSession(session: XRSession) {
     this.renderer.xr.setSession(session);
     this.renderer.setAnimationLoop(() => {
       const xrCameras = this.renderer.xr.getCamera();
@@ -76,57 +61,29 @@ class PhotoXR {
       this.vrInput.pollInputs();
       this.renderer.render(this.scene, this.camera);
     });
-
-    session.addEventListener('end', () => {
-      this.renderer.xr.setSession(null);
-      this.renderer.setAnimationLoop(null);
-      this.renderer.dispose();
-      console.log('XR session ended');
-    });
   }
 
   endSession() {
     this.renderer.xr.getSession()?.end();
   }
 
-  private createEyesGeometry() {
-    const geometry = new THREE.SphereGeometry(
-      /*radius=*/75,
-      /*widthSegments=*/64,
-      /*heightSegments=*/64,
-      /*phiStart=*/Math.PI,
-      /*phiLength=*/Math.PI  // Half circle.
-    );
-    geometry.scale(-1, 1, 1);  // Flip so we view from inside
-
-    const leftMesh = new THREE.Mesh(geometry, this.leftMaterial);
-    const rightMesh = new THREE.Mesh(geometry, this.rightMaterial);
-
-    // Default layer is 0. Keep hemispheres only on 1 and 2.
-    leftMesh.layers.set(1);
-    rightMesh.layers.set(2);
-
-    this.scene.add(leftMesh);
-    this.scene.add(rightMesh);
+  cleanupSession() {
+    this.renderer.xr.setSession(null);
+    this.renderer.setAnimationLoop(null);
+    this.renderer.dispose();
   }
 
-  private createStereoTextures(texture: THREE.Texture): THREE.Texture[] {
-    const leftTexture = texture;
-    leftTexture.repeat.set(0.5, 1);
-    leftTexture.offset.set(0, 0);
+  private createCamera(): THREE.PerspectiveCamera {
+    // Create a camera. The FOV and aspect ratio is overridden by WebXR.
+    const aspect = window.innerWidth / window.innerHeight;
+    const zNear = 0.1;
+    const zFar = 100.0;
+    const camera = new THREE.PerspectiveCamera(/*fov=*/70, aspect, zNear, zFar);
 
-    const rightTexture = texture.clone();
-    rightTexture.repeat.set(0.5, 1);
-    rightTexture.offset.set(0.5, 0);
-
-    return [leftTexture, rightTexture];
-  }
-
-  private getSbsMediaRequest(media: types.SelectedMedia): string {
-    const index = media.index;
-    const album = media.album;
-    const entry = album.entries[index];
-    return stringUtils.joinPaths('/media', album.path, entry.name);
+    // Enable the hemisphere layers for this camera (default is 0 only).
+    camera.layers.enable(1);
+    camera.layers.enable(2);
+    return camera;
   }
 
   private onSelect(event: Event) {
@@ -148,97 +105,38 @@ class PhotoXR {
   }
 
   private onChangeMedia(delta: number) {
-    this.cleanupResources();
     if (!this.media) return;
 
     // Advance the media index.
     const album = this.media.album;
     const count = album.entries.length;
     this.media.index = (this.media.index + delta + count) % count;
-    const entry = album.entries[this.media.index];
-    if (entry.type === types.EntryType.PHOTO) {
-      this.setSideBySidePhoto(this.media);
-    } else if (entry.type === types.EntryType.VIDEO) {
-      this.setSideBySideVideo(this.media);
-    }
-  }
-
-  private setSideBySidePhoto(media: types.SelectedMedia) {
-    const url = this.getSbsMediaRequest(media);
-    this.textureLoader.load(url, (texture) => {
-      this.configureTexture(texture);
-      const [left, right] = this.createStereoTextures(texture);
-      this.setMaterialTexture(this.leftMaterial, left);
-      this.setMaterialTexture(this.rightMaterial, right);
-    });
-  }
-
-  private setSideBySideVideo(media: types.SelectedMedia) {
-    this.videoElement = document.createElement('video');
-    this.videoElement.src = this.getSbsMediaRequest(media);
-    this.videoElement.crossOrigin = 'anonymous';
-    this.videoElement.loop = true;
-    this.videoElement.muted = true;
-    this.videoElement.playsInline = true;
-    this.videoElement.play().then(() => {
-      const texture = new THREE.VideoTexture(this.videoElement);
-      this.configureTexture(texture);
-      const [left, right] = this.createStereoTextures(texture);
-      this.setMaterialTexture(this.leftMaterial, left);
-      this.setMaterialTexture(this.rightMaterial, right);
-    });
-  }
-
-  private setMaterialTexture(
-    material: THREE.MeshBasicMaterial, texture: THREE.Texture) {
-    material.map?.dispose();  // Avoid GPU leaks.
-    material.map = texture;
-    material.color = new THREE.Color(0xffffff);
-    material.needsUpdate = true;
-  }
-
-  private configureTexture(texture: THREE.Texture) {
-    texture.generateMipmaps = true;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearMipMapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-  }
-
-  private cleanupResources() {
-    // Clean up old textures.
-    this.leftMaterial.map?.dispose();
-    this.leftMaterial.map = null;
-    this.rightMaterial.map?.dispose();
-    this.rightMaterial.map = null;
-
-    // Clean up the old video element.
-    if (this.videoElement) {
-      this.videoElement.pause();
-      this.videoElement.src = '';
-      this.videoElement.load();
-      this.videoElement = undefined;
-    }
+    this.mediaViewer.changeMedia(this.media);
   }
 }
 
 // Singleton instance, created and disposed on demand.
 let photoXR: PhotoXR | undefined;
 
+function cleanupSession() {
+  photoXR?.cleanupSession();
+  photoXR = undefined;
+  console.log('XR session ended');
+}
+
 // Initializes WebXR and starts the session.
 export function startSession(session: XRSession, media: types.SelectedMedia) {
   if (!!photoXR) return;
   photoXR = new PhotoXR();
-  photoXR.bindSession(session);
+  photoXR.startSession(session);
   photoXR.setMedia(media);
   console.log('XR session started');
+  session.addEventListener('end', cleanupSession);
 }
 
-// Ends the WebXR session.
+// Requets to ends the WebXR session.
 export function endSession() {
-  if (!photoXR) return;
-  photoXR.endSession();
-  photoXR = undefined;
+  photoXR?.endSession();
 }
 
 export function updateMedia(media: types.SelectedMedia) {

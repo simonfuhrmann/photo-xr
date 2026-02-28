@@ -102,6 +102,9 @@ bool Socket::IsInputAvailable(void) const {
 
 util::StatusOr<size_t> Socket::PartialRead(void* buffer, size_t size,
                                            size_t offset) {
+  if (IsClosed()) {
+    return util::FailedPreconditionError("Socket is closed");
+  }
 #ifndef _WIN32
   const ssize_t ret = ::recv(socket_, (char*)buffer + offset, size, 0);
   if (ret == -1) {
@@ -144,6 +147,9 @@ util::StatusOr<std::string> Socket::ReadLine(size_t max_len) {
 
 util::StatusOr<size_t> Socket::PartialWrite(const void* buffer, size_t size,
                                             size_t offset) {
+  if (IsClosed()) {
+    return util::FailedPreconditionError("Socket is closed");
+  }
   const char* buf = static_cast<const char*>(buffer);
 #ifndef _WIN32
   const ssize_t ret = ::send(socket_, buf + offset, size, 0);

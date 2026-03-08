@@ -2,7 +2,7 @@ import { html, css, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 
 import './xr-app-sidebar';
-import './xr-app-viewer';
+import './xr-app-content';
 import * as types from '../modules/client_types';
 
 @customElement('xr-app')
@@ -17,20 +17,20 @@ export class XrApp extends LitElement {
     xr-app-sidebar {
       flex-shrink: 0;
     }
-    xr-app-viewer {
+    xr-app-content {
       flex-grow: 1;
     }
   `;
 
-  @state() private selectedMedia?: types.SelectedMedia;
+  @state() private album?: types.AlbumResponse;
 
   override render() {
-    const onSelected = (e: CustomEvent<types.SelectedMedia>) => {
-      this.selectedMedia = e.detail;
+    const onSelected = (e: CustomEvent<types.AlbumResponse>) => {
+      this.album = e.detail;
     };
     return html`
-      <xr-app-sidebar @media-selected=${onSelected}></xr-app-sidebar>
-      <xr-app-viewer .media=${this.selectedMedia}></xr-app-viewer>
+      <xr-app-sidebar @selected=${onSelected}></xr-app-sidebar>
+      <xr-app-content .album=${this.album}></xr-app-content>
     `;
   }
 }

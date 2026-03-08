@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import { VRInput } from './vr_input';
 import { MediaViewer } from './media_viewer';
+import { UserInterface } from './user_interface';
 
 type ButtonEvent = { source: XRInputSource, button: number, pressed: boolean };
 
@@ -20,6 +21,9 @@ class PhotoXR {
   // The renderer for the eyes geometry.
   private mediaViewer: MediaViewer;
 
+  // The renderer for the user interface.
+  private userInterface: UserInterface;
+
   constructor() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
@@ -37,12 +41,15 @@ class PhotoXR {
 
     // Create the VR input infrastructure.
     this.vrInput = new VRInput(this.renderer, this.scene);
-    //this.vrInput.addControllerModels();
+    this.vrInput.addControllerModels();
     this.vrInput.addEventListener('select', this.onSelect.bind(this));
     this.vrInput.addEventListener('squeeze', this.onSqueeze.bind(this));
     this.vrInput.addEventListener('button', this.onButton.bind(this));
 
     this.mediaViewer = new MediaViewer(this.renderer, this.scene);
+    this.userInterface = new UserInterface(this.renderer, this.scene);
+
+    this.setCameraLayers();
   }
 
   setMedia(media: types.SelectedMedia) {
@@ -52,17 +59,11 @@ class PhotoXR {
 
   startSession(session: XRSession) {
     this.renderer.xr.setSession(session);
-    this.renderer.setAnimationLoop(() => {
-      const xrCameras = this.renderer.xr.getCamera();
-      if (xrCameras.cameras.length === 2) {
-        xrCameras.cameras[0].layers.set(1); // left eye
-        xrCameras.cameras[1].layers.set(2); // right eye
-      }
-      this.vrInput.pollInputs();
-      this.renderer.render(this.scene, this.camera);
-    });
+    this.renderer.setAnimationLoop(this.animationLoop.bind(this));
   }
 
+  // Tiggers a request to end the session. The session fires the 'end' event
+  // when it is actually ended, which triggers cleanup.
   endSession() {
     this.renderer.xr.getSession()?.end();
   }
@@ -73,22 +74,40 @@ class PhotoXR {
     this.renderer.dispose();
   }
 
+  private animationLoop() {
+    const xrCameras = this.renderer.xr.getCamera();
+    if (xrCameras.cameras.length === 2) {
+      xrCameras.cameras[0].layers.enable(1); // left eye
+      xrCameras.cameras[1].layers.enable(2); // right eye
+    }
+    this.vrInput.pollInputs();
+    this.renderer.render(this.scene, this.camera);
+  }
+
   private createCamera(): THREE.PerspectiveCamera {
     // Create a camera. The FOV and aspect ratio is overridden by WebXR.
     const aspect = window.innerWidth / window.innerHeight;
     const zNear = 0.1;
     const zFar = 100.0;
     const camera = new THREE.PerspectiveCamera(/*fov=*/70, aspect, zNear, zFar);
-
-    // Enable the hemisphere layers for this camera (default is 0 only).
-    camera.layers.enable(1);
-    camera.layers.enable(2);
     return camera;
+  }
+
+  private setCameraLayers() {
+    // Enable the hemisphere layers for this camera (default is 0 only).
+    this.camera.layers.enable(1);
+    this.camera.layers.enable(2);
+    if (this.userInterface.getUiVisible()) {
+      this.camera.layers.enable(0);
+    } else {
+      this.camera.layers.disable(0);
+    }
   }
 
   private onSelect(event: Event) {
     // This will bring up the immersive UI.
-    console.log('select event');
+    this.userInterface.toggleUi();
+    this.setCameraLayers();
   }
 
   private onSqueeze(event: Event) {

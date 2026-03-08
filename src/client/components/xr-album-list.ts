@@ -7,7 +7,6 @@ import 'oxygen-mdc/oxy-icons-image'
 
 import * as api from '../modules/server_api';
 import * as types from '../modules/client_types';
-import * as stringUtils from '../modules/string_utils';
 
 @customElement('xr-album-list')
 export class XrAlbumList extends LitElement {

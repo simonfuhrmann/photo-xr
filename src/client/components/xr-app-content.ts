@@ -7,7 +7,7 @@ import 'oxygen-mdc/oxy-icons-image'
 import 'oxygen-mdc/oxy-icons-base'
 
 import '../icons/oxy-icons-xr'
-import * as webXR from '../webxr/webxr'
+import { webXR } from '../webxr/webxr'
 import * as types from '../modules/client_types';
 
 @customElement('xr-app-content')
@@ -76,11 +76,18 @@ export class XrAppContent extends LitElement {
       font-size: 0.9em;
       color: #aaa;
     }
+    [hidden] {
+      display: none !important;
+    }
   `;
+
+  private onSessionStarted = () => { this.xrRunning = true; };
+  private onSessionEnded = () => { this.xrRunning = false; }
 
   @property({ attribute: false }) album?: types.AlbumResponse;
   @state() private media?: types.SelectedMedia;
   @state() private xrAvailable = false;
+  @state() private xrRunning = false;
 
   // Push the new selected media into the immersive session, if active.
   override willUpdate(changedProperties: Map<string, unknown>) {
@@ -95,6 +102,14 @@ export class XrAppContent extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this.checkXR();
+    webXR.addEventListener('session-started', this.onSessionStarted);
+    webXR.addEventListener('session-ended', this.onSessionEnded);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    webXR.removeEventListener('session-started', this.onSessionStarted);
+    webXR.removeEventListener('session-ended', this.onSessionEnded);
   }
 
   override render() {
@@ -115,12 +130,14 @@ export class XrAppContent extends LitElement {
         <div class="label">${label}</div>
         <oxy-button
           ?disabled=${!this.media || !isAvailable}
+          ?hidden=${this.xrRunning}
           @click=${this.enterXR}>
           Enter VR
         </oxy-button>
 
         <oxy-button
           ?disabled=${!this.media || !isAvailable}
+          ?hidden=${!this.xrRunning}
           @click=${this.leaveXR}>
           Leave VR
         </oxy-button>

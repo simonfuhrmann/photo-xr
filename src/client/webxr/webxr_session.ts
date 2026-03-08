@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
-import { VRInput } from './vr_input';
+import { VRInput, ButtonEvent, DirectionEvent, StickDir } from './vr_input';
 import { MediaViewer } from './media_viewer';
 import { UserInterface } from './user_interface';
-
-type ButtonEvent = { source: XRInputSource, button: number, pressed: boolean };
 
 /**
  * The WebXR session object that is created and disposed on demand when a WebXR
@@ -49,6 +47,7 @@ export class WebXRSession {
     this.vrInput.addEventListener('select', this.onSelect.bind(this));
     this.vrInput.addEventListener('squeeze', this.onSqueeze.bind(this));
     this.vrInput.addEventListener('button', this.onButton.bind(this));
+    this.vrInput.addEventListener('direction', this.onDirection.bind(this));
 
     this.mediaViewer = new MediaViewer(this.renderer, this.scene);
     this.userInterface = new UserInterface(this.renderer, this.scene);
@@ -108,12 +107,13 @@ export class WebXRSession {
     }
   }
 
+  // Called when the trigger is pressed, brings up the immersive UI.
   private onSelect(event: Event) {
-    // This will bring up the immersive UI.
     this.userInterface.toggleUi();
     this.setCameraLayers();
   }
 
+  // Called when the squeeze button is pressed, currently does nothing.
   private onSqueeze(event: Event) {
     console.log('squeeze event', event);
   }
@@ -125,6 +125,13 @@ export class WebXRSession {
     if (!pressed) return;
     if (buttonIndex === 4) this.onChangeMedia(1);
     if (buttonIndex === 5) this.onChangeMedia(-1);
+  }
+
+  private onDirection(event: Event) {
+    const ev = event as CustomEvent<DirectionEvent>;
+    const dir = ev.detail.direction;
+    if (dir === StickDir.LEFT) this.onChangeMedia(-1);
+    if (dir === StickDir.RIGHT) this.onChangeMedia(1);
   }
 
   private onChangeMedia(delta: number) {

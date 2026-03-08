@@ -42,6 +42,15 @@ export class MediaViewer {
     }
   }
 
+  toggleVideoPause() {
+    if (!this.videoElement) return;
+    if (this.videoElement.paused) {
+      this.videoElement.play();
+    } else {
+      this.videoElement.pause();
+    }
+  }
+
   private createEyesGeometry() {
     const geometry = new THREE.SphereGeometry(
         /*radius=*/75,

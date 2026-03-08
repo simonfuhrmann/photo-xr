@@ -63,15 +63,15 @@ class HttpRequest {
   HttpVersion GetRequestVersion() const;
   std::string_view GetRequestVersionString() const;
 
-  // Returns the request target of the request line. This is NOT just a path,
-  // but the full URI, in origin-form or absolute-form, potentially including
-  // query parameters (after "?"), as it appears in the HTTP request. The
-  // client's URI may include a fragment (e.g., "#header1"), but the fragment
-  // is not sent to the server.
+  // Returns the request target. This is NOT just a path, but the full URI, in
+  // origin-form or absolute-form, potentially including URL-encoded characters
+  // (e.g., %20 for space), and query parameters (after "?"), as it appears in
+  // the HTTP request line. The client's URI may include a fragment (e.g.,
+  // "#header1"), but the fragment is not sent to the server.
   std::string_view GetRequestTarget() const;
 
   // Returns the full request line (e.g., "GET /index.html HTTP/1.1"). This is
-  // not the original request line sent by the client, but re=assembled from
+  // not the original request line sent by the client, but re-assembled from
   // the request method, path and version.
   std::string GetRequestLine() const;
 

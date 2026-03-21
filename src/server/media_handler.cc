@@ -5,6 +5,7 @@
 #include <string>
 
 #include "src/server/album_cache.h"
+#include "src/server/net/http_req_target.h"
 #include "src/server/stitch_vr180.h"
 #include "src/server/util/image_io_jpeg.h"
 #include "src/server/util/status.h"
@@ -34,8 +35,9 @@ util::Status MediaHandler::Handle(net::HttpRequest& request) const {
     return util::InvalidArgumentError("Only GET requests are supported");
   }
 
-  ASSIGN_OR_RETURN(const std::string& local_path,
-                   GetLocalFilePath(request.GetRequestTarget()));
+  net::HttpReqTarget target;
+  RETURN_IF_ERROR(target.Parse(request.GetRequestTarget()));
+  ASSIGN_OR_RETURN(const std::string& local_path, GetLocalFilePath(target));
 
   // Video files and SBS photo files can be served as-is via the file handler.
   // VR180 files (where the second eye is in the XMP metadata) must be stitched

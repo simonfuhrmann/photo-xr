@@ -51,6 +51,7 @@ cc_library(
     "//src/server/util:status",
     "//src/server/util:status_or",
     "//src/server/net:http_handler",
+    "//src/server/net:http_req_target",
     "//src/server/net:http_request",
   ],
 )

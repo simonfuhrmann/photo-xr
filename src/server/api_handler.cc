@@ -11,6 +11,7 @@
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/json.h"
+#include "src/server/util/status.h"
 #include "src/server/util/status_or.h"
 
 namespace server {
@@ -25,8 +26,10 @@ ApiHandler::ApiHandler(const Options& options) : options_(options) {}
 
 util::Status ApiHandler::Handle(net::HttpRequest& request) const {
   // Only handle requests that start with "/api/".
-  const net::HttpReqTarget target(request.GetRequestTarget());
-  if (!util::HasPrefix(target.GetPath(), "/api/")) {
+  net::HttpReqTarget target;
+  RETURN_IF_ERROR(target.Parse(request.GetRequestTarget()));
+  const auto& path_components = target.GetPathComponents();
+  if (path_components.empty() || path_components[0] != "api") {
     return util::AbortedError("Not an API request");
   }
 
@@ -38,7 +41,7 @@ util::Status ApiHandler::Handle(net::HttpRequest& request) const {
     return request.Reply();
   }
 
-  if (target.GetPath() == "/api/album") {
+  if (path_components.size() == 2 && path_components[1] == "album") {
     return HandleAlbumRequest(request, target);
   }
 

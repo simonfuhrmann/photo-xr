@@ -12,6 +12,7 @@ cc_library(
     ":http_request",
     ":http_types",
     ":http_range_request",
+    ":http_req_target",
     "//src/server/util:string_utils",
     "//src/server/util:file_utils",
   ],
@@ -33,7 +34,9 @@ cc_library(
   hdrs = ["http_req_target.h"],
   srcs = ["http_req_target.cc"],
   deps = [
+    ":url_encoding",
     "//src/server/util:string_utils",
+    "//src/server/util:status",
   ],
 )
 

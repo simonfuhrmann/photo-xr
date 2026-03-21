@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "src/server/net/http_range_request.h"
+#include "src/server/net/http_req_target.h"
 #include "src/server/net/http_request.h"
 #include "src/server/net/http_types.h"
 #include "src/server/util/status.h"
@@ -92,7 +93,7 @@ class HttpStaticFileHandler : public HttpHandlerBase {
   // present, normalizes the request, canonicalizes the path, and ensures the
   // path is under the root directory if `strict_root` is enabled.
   util::StatusOr<std::string> GetLocalFilePath(
-      std::string_view http_request_target) const;
+      const HttpReqTarget& target) const;
 
  private:
   util::StatusOr<bool> MaybeHandleRangeRequest(

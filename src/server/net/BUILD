@@ -108,6 +108,15 @@ cc_library(
   ],
 )
 
+cc_library(
+  name = "url_encoding",
+  hdrs = ["url_encoding.h"],
+  srcs = ["url_encoding.cc"],
+  deps = [
+    "//src/server/util:status_or",
+  ],
+)
+
 # Tests.
 
 cc_test(
@@ -148,6 +157,16 @@ cc_test(
   size = "small",
   deps = [
     ":http_types",
+    "//src/server/test:tinytest",
+  ],
+)
+
+cc_test(
+  name = "url_encoding_test",
+  srcs = ["url_encoding_test.cc"],
+  size = "small",
+  deps = [
+    ":url_encoding",
     "//src/server/test:tinytest",
   ],
 )

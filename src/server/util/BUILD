@@ -5,6 +5,16 @@ package(default_visibility = ["//visibility:public"])
 # Libraries
 
 cc_library(
+  name = "argument_parser",
+  hdrs = ["argument_parser.h"],
+  srcs = ["argument_parser.cc"],
+  deps = [
+    ":status",
+    ":status_or",
+  ],
+)
+
+cc_library(
   name = "base64",
   hdrs = ["base64.h"],
   srcs = ["base64.cc"],
@@ -64,6 +74,18 @@ cc_library(
 )
 
 # Tests
+
+cc_test(
+  name = "argument_parser_test",
+  srcs = ["argument_parser_test.cc"],
+  size = "small",
+  deps = [
+    ":argument_parser",
+    ":status_or",
+    ":status",
+    "//src/server/test:tinytest",
+  ],
+)
 
 cc_test(
   name = "base64_test",

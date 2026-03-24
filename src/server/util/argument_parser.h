@@ -92,6 +92,7 @@ class ArgumentParser {
     int min_positional_args = 0;      // Required number of positionals.
     int max_positional_args = -1;     // Any number allowed if negative.
     bool print_help_on_error = true;  // Print help text on parse error.
+    bool strip_argv0_dir = true;      // Strip dir from argv[0] in help text.
     std::string usage = "[options] [arg0 [arg1 [...]]]";
   };
 

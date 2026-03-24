@@ -297,6 +297,13 @@ ParsedArguments ArgumentParser::ParseOrDie(int argc, const char* argv[]) const {
 
 void ArgumentParser::PrintHelpText(std::string_view argv0,
                                    std::ostream& os) const {
+  if (spec_.strip_argv0_dir) {
+    const size_t last_slash = argv0.rfind('/');
+    if (last_slash != std::string_view::npos) {
+      argv0.remove_prefix(last_slash + 1);
+    }
+  }
+
   os << "Usage: " << argv0 << " " << spec_.usage << "\n";
   if (spec_.options.empty()) return;
 

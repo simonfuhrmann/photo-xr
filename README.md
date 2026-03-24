@@ -1,13 +1,13 @@
 # Photo XR
 
-Photo XR is an web application for locally hosting VR photos.
+Photo XR is an web application for hosting local VR photos.
 
 ## OpenXR requires a secure context
 
 A secure context is required for OpenXR to function. This means that the web
-browsers will _generally_ refuse to start WebXR over a HTTP connection (unless
-you're connecting to `localhost`). A HTTPS connection is _required_. This can be
-queried in JavaScript via `window.isSecureContext`.
+browsers will _generally_ refuse to start any WebXR application over a HTTP
+connection (unless you're connecting to `localhost`). A HTTPS connection is
+_required_. This can be queried in JavaScript via `window.isSecureContext`.
 
 This is a privacy and security restriction aiming to prevent leaking of
 sensitive data (sensor data about your real environment) over an unsecured
@@ -31,5 +31,5 @@ sudo caddy run
 ``` 
 
 By default, Caddy uses port :443. This is a privileged port and requires `sudo`.
-If you prefer to run without root, you can change the port in the Caddyfile to,
-e.g., :8443, and access the site at https://<IP>:8443.
+If you prefer to run without root, you can change the port in `Caddyfile`. For
+example, choose port :8443, and access the site at https://<IP>:8443.

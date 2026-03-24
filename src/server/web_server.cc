@@ -64,12 +64,7 @@ util::Status WebServer::Start() {
   const net::HttpServer::Options& http_opts = http_server_.GetOptions();
   std::cout << "Starting HTTP server on " << http_opts.listen_address << ":"
             << http_opts.listen_port << "..." << std::endl;
-  const util::Status status = http_server_.Start();
-  if (!status.ok()) {
-    std::cerr << "Failed starting HTTP server: " << status.message()
-              << std::endl;
-  }
-  return status;
+  return http_server_.Start();
 }
 
 util::Status WebServer::Stop() {
@@ -77,7 +72,7 @@ util::Status WebServer::Stop() {
     std::cout << "Stopping HTTP server..." << std::endl;
     RETURN_IF_ERROR(http_server_.Stop());
   }
-  return util::Status();
+  return util::OkStatus();
 }
 
 util::Status WebServer::LoggerHandler::Handle(net::HttpRequest& request) const {

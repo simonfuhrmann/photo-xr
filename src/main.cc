@@ -9,7 +9,7 @@ int main(int argc, const char** argv) {
   const util::ArgumentParser::Spec spec = {
       .options = {{.long_name = "server-port",
                    .has_value = true,
-                   .description = "Server port to listen on",
+                   .description = "Server port to listen on [default 8080]",
                    .default_value = "8080"}},
       .min_positional_args = 1,
       .max_positional_args = 1,

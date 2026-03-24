@@ -11,10 +11,11 @@
 namespace server {
 
 // Serves photo and video media files under the "/media" prefix.
+//
 // The renderer in the client expects side-by-side 180 degrees equirect media.
 // If the photo or video is in SBS format, it will be served as-is. For VR180
-// photos, however, the client does not have easy access to the XMP metadata.
-// This, the handler transparently stitch these photos to 180 degree SBS.
+// photos, since the client does not have easy access to the XMP metadata,
+// the handler transparently stitches these photos to 180 degree SBS.
 class MediaHandler : public net::HttpStaticFileHandler {
  public:
   struct Options {

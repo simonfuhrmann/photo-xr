@@ -1,5 +1,6 @@
 #include "src/server/util/argument_parser.h"
 
+#include <charconv>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -14,6 +15,7 @@
 
 namespace util {
 namespace {
+
 std::string GetOptionsHelpText(const ArgumentParser::OptionSpec& spec) {
   std::stringstream ss;
   if (spec.short_name != '\0') {
@@ -23,6 +25,20 @@ std::string GetOptionsHelpText(const ArgumentParser::OptionSpec& spec) {
   if (spec.has_value) ss << "=ARG";
   return ss.str();
 }
+
+template <typename T>
+T GetOptionOrDieInternal(const ParsedArguments& args, std::string_view name) {
+  std::string_view str = args.GetOptionOrDie(name);
+  T value;
+  const char* str_end = str.data() + str.size();
+  const auto result = std::from_chars(str.data(), str_end, value);
+  if (result.ec != std::errc() || result.ptr != str_end) {
+    std::cerr << "Error: Invalid value for option --" << name << "\n";
+    std::exit(1);
+  }
+  return value;
+}
+
 }  // namespace
 
 // Implementation for `ParsedArguments`.
@@ -32,6 +48,25 @@ std::optional<std::string_view> ParsedArguments::GetOption(
   const auto iter = options.find(long_name);
   if (iter == options.end()) return std::nullopt;
   return iter->second;
+}
+
+std::string_view ParsedArguments::GetOptionOrDie(
+    std::string_view long_name) const {
+  std::optional<std::string_view> value = GetOption(long_name);
+  if (!value.has_value()) {
+    std::cerr << "Error: Missing required option --" << long_name << "\n";
+    std::exit(1);
+  }
+  return *value;
+}
+
+int ParsedArguments::GetOptionAsIntOrDie(std::string_view long_name) const {
+  return GetOptionOrDieInternal<int>(*this, long_name);
+}
+
+double ParsedArguments::GetOptionAsDoubleOrDie(
+    std::string_view long_name) const {
+  return GetOptionOrDieInternal<double>(*this, long_name);
 }
 
 bool ParsedArguments::HasFlag(std::string_view long_name) const {
@@ -48,6 +83,14 @@ std::optional<std::string_view> ParsedArguments::GetPositional(
   return positionals[index];
 }
 
+std::string_view ParsedArguments::GetPositionalOrDie(size_t index) const {
+  if (index >= positionals.size()) {
+    std::cerr << "Error: Positional argument " << index << " is out of range\n";
+    std::exit(1);
+  }
+  return positionals[index];
+}
+
 // Implementation for `ArgumentParser`.
 
 util::StatusOr<ArgumentParser> ArgumentParser::Create(const Spec& spec) {
@@ -60,7 +103,7 @@ ArgumentParser ArgumentParser::CreateOrDie(const Spec& spec) {
   ArgumentParser parser;
   if (const util::Status status = parser.SetSpec(spec); !status.ok()) {
     std::cerr << "Invalid argument parser spec: " << status.message() << "\n";
-    std::abort();
+    std::exit(1);
   }
   return parser;
 }
@@ -246,9 +289,15 @@ util::StatusOr<ParsedArguments> ArgumentParser::Parse(
   return result;
 }
 
+ParsedArguments ArgumentParser::ParseOrDie(int argc, const char* argv[]) const {
+  util::StatusOr<ParsedArguments> result = Parse(argc, argv);
+  if (!result.ok()) std::exit(1);
+  return std::move(*result);
+}
+
 void ArgumentParser::PrintHelpText(std::string_view argv0,
                                    std::ostream& os) const {
-  os << "Usage: " << argv0 << " [options] [arg0 [arg1 [...]]]\n";
+  os << "Usage: " << argv0 << " " << spec_.usage << "\n";
   if (spec_.options.empty()) return;
 
   os << "Available options and flags:\n";

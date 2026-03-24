@@ -19,15 +19,27 @@ class ParsedArguments {
  public:
   // Returns the option's value, or the options default value if not provided.
   // Returns std::nullopt if the option was neither provided nor has a default.
+  // GetOptionOrDie() prints an error and calls std::exit(1) if the option was
+  // neither provided nor has a default.
   std::optional<std::string_view> GetOption(std::string_view long_name) const;
+  std::string_view GetOptionOrDie(std::string_view long_name) const;
+
+  // Returns the option's value as the specified type, or the options default
+  // value if not provided. Prints and error and calls std::exit(1) if the
+  // option was neither provided nor has a default, or if the value cannot be
+  // converted to the specified type.
+  int GetOptionAsIntOrDie(std::string_view long_name) const;
+  double GetOptionAsDoubleOrDie(std::string_view long_name) const;
 
   // Returns true if the flag was provided.
   bool HasFlag(std::string_view long_name) const;
 
   // Returns positionals. The number of positionals is guaranteed to be between
-  // the min and max in the spec.
+  // the min and max in the spec. GetPositionalOrDie() returns the positional
+  // or prints an error and calls std::exit(1) if the index is out of range.
   const std::vector<std::string>& GetPositionals() const;
   std::optional<std::string_view> GetPositional(size_t index) const;
+  std::string_view GetPositionalOrDie(size_t index) const;
 
   std::map<std::string, std::string, std::less<>> options;
   std::set<std::string, std::less<>> flags;
@@ -80,17 +92,20 @@ class ArgumentParser {
     int min_positional_args = 0;      // Required number of positionals.
     int max_positional_args = -1;     // Any number allowed if negative.
     bool print_help_on_error = true;  // Print help text on parse error.
+    std::string usage = "[options] [arg0 [arg1 [...]]]";
   };
 
   // Creates the ArgumentParser, or returns an error if the spec is invalid.
+  // CreateOrDie() calls std::exit(1) instead of returning an error.
   static util::StatusOr<ArgumentParser> Create(const Spec& spec);
-  // Creates the ArgumentParser, or calls std::abort if the spec is invalid.
   static ArgumentParser CreateOrDie(const Spec& spec);
 
   // Parses arguments given in argc and argv. It treats argv[0] as the program
   // name, and argc MUST be at least 1. If parsing fails, an error is returned,
   // and the help text printed to stderr if `print_help_on_error` is true.
+  // ParseOrDie() calls std::exit(1) instead of returning an error.
   util::StatusOr<ParsedArguments> Parse(int argc, const char* argv[]) const;
+  ParsedArguments ParseOrDie(int argc, const char* argv[]) const;
 
   // Prints the help text to the given output stream. The help text is of the
   // following form, and requires the program name to be passed in:

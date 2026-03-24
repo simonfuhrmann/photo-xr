@@ -125,7 +125,7 @@ TEST(ArgumentParser, ParseComplex) {
   const util::StatusOr<ArgumentParser> parser = ArgumentParser::Create(spec);
   ASSERT_OK(parser);
 
-  const char* argv[] = {"./x", "-abd1", "-e", "2", "-f3", "--ggg=4", "pos0"};
+  const char* argv[] = {"./x", "-abd1", "-e", "2", "-f3.5", "--ggg=4", "pos0"};
   const util::StatusOr<ParsedArguments> result = parser->Parse(7, argv);
   ASSERT_OK(result);
   EXPECT_TRUE(result->HasFlag("aaa"));
@@ -133,12 +133,16 @@ TEST(ArgumentParser, ParseComplex) {
   EXPECT_FALSE(result->HasFlag("ccc"));
   EXPECT_EQ(result->GetOption("ddd"), "1");
   EXPECT_EQ(result->GetOption("eee"), "2");
-  EXPECT_EQ(result->GetOption("fff"), "3");
+  EXPECT_EQ(result->GetOption("fff"), "3.5");
   EXPECT_EQ(result->GetOption("ggg"), "4");
   EXPECT_EQ(result->GetOption("hhh"), "h-default");
   EXPECT_EQ(result->GetOption("iii"), std::nullopt);
   ASSERT_EQ(result->GetPositionals().size(), 1);
   EXPECT_EQ(result->GetPositionals()[0], "pos0");
+
+  EXPECT_EQ(result->GetOptionOrDie("ddd"), "1");
+  EXPECT_EQ(result->GetOptionAsIntOrDie("eee"), 2);
+  EXPECT_EQ(result->GetOptionAsDoubleOrDie("fff"), 3.5);
 }
 
 }  // namespace util

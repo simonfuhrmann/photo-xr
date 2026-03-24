@@ -7,6 +7,7 @@ cc_binary(
   srcs = ["main.cc"],
   deps = [
     "//src/server:web_server",
+    "//src/server/util:argument_parser",
     "//src/server/util:status",
   ],
   linkopts = ["-ljpeg"],

@@ -115,7 +115,7 @@ export class WebXRSession {
 
   // Called when the squeeze button is pressed, currently does nothing.
   private onSqueeze(event: Event) {
-    console.log('squeeze event', event);
+    // No-op.
   }
 
   private onButton(event: Event) {

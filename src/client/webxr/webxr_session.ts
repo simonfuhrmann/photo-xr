@@ -123,9 +123,13 @@ export class WebXRSession {
     const buttonIndex = ev.detail.button;
     const pressed = ev.detail.pressed;
     if (!pressed) return;
-    // A-button is 4 (pause current video), B-button is 5 (no-op).
+    // A-button is 4 (pause current video).
     if (buttonIndex === 4) {
       this.mediaViewer.toggleVideoPause();
+    }
+    // B-button is 5 (toggle video mute).
+    if (buttonIndex === 5) {
+      this.mediaViewer.toggleVideoMute();
     }
   }
 

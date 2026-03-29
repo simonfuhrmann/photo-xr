@@ -51,6 +51,11 @@ export class MediaViewer {
     }
   }
 
+  toggleVideoMute() {
+    if (!this.videoElement) return;
+    this.videoElement.muted = !this.videoElement.muted;
+  }
+
   private createEyesGeometry() {
     const geometry = new THREE.SphereGeometry(
         /*radius=*/75,

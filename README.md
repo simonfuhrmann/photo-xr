@@ -7,8 +7,8 @@ PhotoXR is a lightweight web application that lets you browse and view locally
 stored media in a VR headset through the headset's browser. It is designed for
 simple, local-first usage:
 
-- start the web server on your local computer and point it to a directory with
-  VR media (both photos and videos are supported),
+- start the PhotoXR web server on your local computer and point it to a
+  directory with VR media (both photos and videos are supported),
 - open the browser on your VR headset and navigate to the web application
   provided by the web server.
 
@@ -29,7 +29,7 @@ format where the right eye is stored in the JPEG's XMP metadata.
 **Video support:** The WebXR viewer expects all videos to be in side-by-side 180
 degree equirectangular format. The web server supports HTTP range requests for
 efficient video streaming. (Currently, there is no support for fisheye. It seems
-straightforward to support via fisheye texture mapping.) 
+straightforward to support via fisheye texture mapping.)
 
 **UI interaction:** Interaction is limited: Browse the media directory structure
 in the flat web application. Once immersive, navigate forward/backward using the
@@ -56,9 +56,9 @@ media files are served as-is, with one exception: JPEGs in Google's VR180 JPEG
 file format are transparently re-encoded to side-by-side equirectangular images.
 
 **Client:** The client is a web application loaded in the VR headset's browser.
-It utilizes both a flat view to browse the media gallery, and immersive view
-using WebXR to view photos and videos. Limited interaction in the immersive view
-is provided.
+It utilizes both a flat HTML view to browse the media gallery, and immersive
+view using WebXR to view photos and videos. Limited interaction in the immersive
+view is provided.
 
 **Communication:** Communication between client and server happens over HTTPS in
 the browser. See the section below for details on secure context requirements in
@@ -100,15 +100,16 @@ bazel run -c opt src:main -- /path/to/media
 ```
 
 By default, the server listens on port 8080. The web server is currently lacking
-HTTPS support. For now, unfortunately, you need to run a HTTPS reverse proxy
-(such as Caddy, read about secure context requirements below):
+HTTPS support. For now, unfortunately, to view media in VR, you need to run a
+HTTPS reverse proxy (such as Caddy, read about the secure context requirements
+below):
 
 ```bash
 # Run from the photo-xr/ directory, next to Caddyfile.
 sudo caddy run  
 ```
 
-Then open the application from your VR headset browser.  Click 'Advanced' ->
+Then open the application from your VR headset browser. Click 'Advanced' ->
 'Proceed' to get past the self-signed certificate warning.
 
 ```
@@ -118,17 +119,23 @@ https://<your-machine-ip>
 ## Development
 
 Client development requires to bundle the web application when the client code
-changes. See `package.json` for details. This can be achieved with:
+changes. See `package.json` for details. To fetch all dependencies, run:
 
 ```bash
 cd ./src/client
+npm install
+```
+
+To bundle the web client application, run:
+
+```bash
 npm run bundle  # or "npm run watch" for continuous builds
 ```
 
 The `Immersive Web Emulator` Chrome extension allows you to enter immersive view
 on a regular Chrome browser, which usually does not support WebXR. This is
-highly recommended for local development. It avoids constant switching to the
-VR headset.
+highly recommended for local development. It avoids constant switching to the VR
+headset.
 
 ## OpenXR requires a secure context
 

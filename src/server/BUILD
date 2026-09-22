@@ -10,6 +10,7 @@ cc_library(
   srcs = ["album_cache.cc"],
   deps = [
     ":file_utils",
+    ":media_type",
     "//src/server/util:file_utils",
     "//src/server/util:status",
     "//src/server/util:status_or",
@@ -24,6 +25,7 @@ cc_library(
   deps = [
     ":album_cache",
     ":file_utils",
+    ":media_type",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
     "//src/server/net:http_request",
@@ -47,12 +49,21 @@ cc_library(
   deps = [
     ":album_cache",
     ":stitch_vr180",
+    ":media_type",
     "//src/server/util:image_io_jpeg",
     "//src/server/util:status",
     "//src/server/util:status_or",
     "//src/server/net:http_handler",
     "//src/server/net:http_req_target",
     "//src/server/net:http_request",
+  ],
+)
+
+cc_library(
+  name = "media_type",
+  hdrs = ["media_type.h"],
+  srcs = ["media_type.cc"],
+  deps = [
   ],
 )
 

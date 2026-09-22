@@ -35,9 +35,11 @@ export class MediaViewer {
 
     const album = this.media.album;
     const entry = album.entries[this.media.index];
-    if (entry.type === types.EntryType.PHOTO) {
+    if (entry.media === types.MediaType.IMAGE_GPHOTO) {
       this.setSideBySidePhoto(this.media);
-    } else if (entry.type === types.EntryType.VIDEO) {
+    } else if (entry.media === types.MediaType.IMAGE_SBS) {
+      this.setSideBySidePhoto(this.media);
+    } else if (entry.media === types.MediaType.VIDEO_SBS) {
       this.setSideBySideVideo(this.media);
     }
   }

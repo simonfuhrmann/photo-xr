@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+#include "src/server/media_type.h"
+
 namespace server {
 
 class AlbumCache {
@@ -14,7 +16,7 @@ class AlbumCache {
 
   struct CacheData {
     FsTime last_modified;
-    std::string stereo_type;
+    MediaType media_type;
   };
 
   explicit AlbumCache(std::string_view album_dir);

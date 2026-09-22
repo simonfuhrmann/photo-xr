@@ -8,6 +8,7 @@
 
 #include "src/server/album_cache.h"
 #include "src/server/file_utils.h"
+#include "src/server/media_type.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/json.h"
@@ -94,22 +95,21 @@ util::Status ApiHandler::HandleAlbumRequest(
   util::Json::Array entries;
   for (const FsEntry& album : albums) {
     util::Json::Object album_entry;
-    album_entry["type"] = "album";
     album_entry["name"] = album.path().filename().string();
+    album_entry["media"] = "ALBUM";
     entries.push_back(album_entry);
   }
   for (const FsEntry& file : files) {
     const std::string file_path = file.path().filename().string();
     AlbumCache::CacheData cache_data = album_cache.Get(file_path);
     util::Json::Object photo_entry;
-    photo_entry["type"] = IsVideoFile(file) ? "video" : "photo";
     photo_entry["name"] = file_path;
-    photo_entry["stereo"] = cache_data.stereo_type;
+    photo_entry["media"] = MediaTypeToString(cache_data.media_type);
     entries.push_back(photo_entry);
   }
   util::Json::Object json_response;
   json_response["path"] = std::string(album_path);
-  json_response["entries"] = entries;
+  json_response["entries"] = std::move(entries);
   util::Json json(json_response);
 
   // Send the response as a JSON object.

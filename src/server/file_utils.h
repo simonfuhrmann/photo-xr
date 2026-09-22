@@ -11,7 +11,10 @@ bool IsImageFile(const std::filesystem::directory_entry& entry);
 // Returns true if the file extension is a recognized video format.
 bool IsVideoFile(const std::filesystem::directory_entry& entry);
 
-// Returns true if the file is either an image or video file.
+// Retuns true if the file is a supported Gaussian Splat file.
+bool IsSplatFile(const std::filesystem::directory_entry& entry);
+
+// Returns true if the file is an image, video, or splat file.
 bool IsMediaFile(const std::filesystem::directory_entry& entry);
 
 }  // namespace server

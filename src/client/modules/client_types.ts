@@ -1,20 +1,17 @@
 // Types related to the server side API.
 
-export enum EntryType {
-  ALBUM = 'album',
-  PHOTO = 'photo',
-  VIDEO = 'video',
-}
-
-export enum StereoMode {
-  SIDE_BY_SIDE = 'sbs',
-  GOOGLE_PHOTO = 'gphoto',
+export enum MediaType {
+  UNKNOWN = 'UNKNOWN',
+  ALBUM = 'ALBUM',
+  IMAGE_SBS = 'IMAGE_SBS',
+  IMAGE_GPHOTO = 'IMAGE_GPHOTO',
+  VIDEO_SBS = 'VIDEO_SBS',
+  GEOMETRY_SPLAT = 'GEOMETRY_SPLAT',
 }
 
 export interface AlbumEntry {
   name: string;
-  type: EntryType;
-  stereo?: StereoMode;
+  media: MediaType;
 }
 
 // Response type for GET /api/album?path=... send via JSON by the server.

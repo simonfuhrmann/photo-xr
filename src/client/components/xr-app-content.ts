@@ -156,7 +156,7 @@ export class XrAppContent extends LitElement {
       return html`<div>No album selected.</div>`;
     }
     const entries = this.album.entries.filter((entry) => {
-      return entry.type !== types.EntryType.ALBUM;
+      return entry.media !== types.MediaType.ALBUM;
     });
     if (entries.length === 0) {
       return html`<div>No media in album.</div>`;
@@ -174,7 +174,7 @@ export class XrAppContent extends LitElement {
       <div class="media" ?selected=${isSelected} @click=${onSelect}>
         <div class="media-layout">
           <div class="filename">${entry.name}</div>
-          <div class="info">size: n/a, type: ${entry.type}</div>
+          <div class="info">size: n/a, type: ${entry.media}</div>
         </div>
         <oxy-icon icon=${getIconForMedia(entry)}></oxy-icon>
       </div>
@@ -222,12 +222,12 @@ function getStatusLabel(isAvailable: boolean) {
 }
 
 function getIconForMedia(entry: types.AlbumEntry) {
-  if (entry.type === types.EntryType.VIDEO) {
+  if (entry.media === types.MediaType.VIDEO_SBS) {
     return 'image:movie-creation';
   }
-  if (entry.stereo === types.StereoMode.GOOGLE_PHOTO) {
+  if (entry.media === types.MediaType.IMAGE_GPHOTO) {
     return 'xr:vr180';
-  } else if (entry.stereo === types.StereoMode.SIDE_BY_SIDE) {
+  } else if (entry.media === types.MediaType.IMAGE_SBS) {
     return 'xr:sbs';
   }
   return 'image:photo';

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "src/server/album_cache.h"
+#include "src/server/media_type.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/stitch_vr180.h"
 #include "src/server/util/image_io_jpeg.h"
@@ -39,15 +40,15 @@ util::Status MediaHandler::Handle(net::HttpRequest& request) const {
   RETURN_IF_ERROR(target.Parse(request.GetRequestTarget()));
   ASSIGN_OR_RETURN(const std::string& local_path, GetLocalFilePath(target));
 
-  // Video files and SBS photo files can be served as-is via the file handler.
-  // VR180 files (where the second eye is in the XMP metadata) must be stitched
-  // to a SBS JPEG.
+  // All files (except the gphoto image format) can be served as-is via the
+  // file handler. VR180 "GPhoto" files (where the second eye is in the XMP
+  // metadata) must be stitched to a SBS JPEG.
   const std::filesystem::path file_path(local_path);
   const std::filesystem::path parent_path = file_path.parent_path();
   const std::filesystem::path filename = file_path.filename();
   AlbumCache cache(parent_path.string());
   AlbumCache::CacheData cache_data = cache.Get(filename.string());
-  if (cache_data.stereo_type == "sbs") {
+  if (cache_data.media_type != MediaType::IMAGE_GPHOTO) {
     return net::HttpStaticFileHandler::Handle(request);
   }
 

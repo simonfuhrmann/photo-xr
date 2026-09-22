@@ -29,7 +29,13 @@ bool IsVideoFile(const fs::directory_entry& entry) {
 }
 
 bool IsMediaFile(const std::filesystem::directory_entry& entry) {
-  return IsImageFile(entry) || IsVideoFile(entry);
+  return IsImageFile(entry) || IsVideoFile(entry) || IsSplatFile(entry);
+}
+
+bool IsSplatFile(const std::filesystem::directory_entry& entry) {
+  const fs::path& p = entry.path();
+  const std::string ext = ToLower(p.extension().string());
+  return ext == ".ply";
 }
 
 }  // namespace server

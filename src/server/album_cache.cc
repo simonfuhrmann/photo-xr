@@ -4,8 +4,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 
 #include "src/server/file_utils.h"
+#include "src/server/media_type.h"
 #include "src/server/util/file_utils.h"
 #include "src/server/util/image_io_jpeg.h"
 #include "src/server/util/status_or.h"
@@ -35,22 +37,27 @@ FsTime GetLastModifiedTime(const FsEntry& entry) {
   return entry.last_write_time();
 }
 
-util::StatusOr<std::string> GetStereoType(const FsEntry& entry) {
-  if (IsVideoFile(entry)) {
-    return std::string("sbs");
-  }
-
+bool IsGphotoJpeg(const FsEntry& entry) {
   util::JpegReadOptions options;
   options.include_image_data = false;
   options.include_xmp_data = true;
   std::string_view path = entry.path().c_str();
-  ASSIGN_OR_RETURN(const util::ImageData image, JpegRead(options, path));
-  if (image.xmp_metadata.find("xmlns:GImage") != std::string::npos &&
-      image.xmp_metadata.find("HasExtendedXMP") != std::string::npos) {
-    return std::string("gphoto");
+  const util::StatusOr<util::ImageData> image = JpegRead(options, path);
+  if (image.ok()) return false;
+
+  const std::string& xmp_meta = image->xmp_metadata;
+  return xmp_meta.find("xmlns:GImage") != std::string::npos &&
+         xmp_meta.find("HasExtendedXMP") != std::string::npos;
+}
+
+MediaType GetMediaType(const FsEntry& entry) {
+  if (IsVideoFile(entry)) return MediaType::VIDEO_SBS;
+  if (IsSplatFile(entry)) return MediaType::GEOMETRY_SPLAT;
+  if (IsImageFile(entry)) {
+    if (IsGphotoJpeg(entry)) return MediaType::IMAGE_GPHOTO;
+    return MediaType::IMAGE_SBS;
   }
-  // Default to side-by-side if no XMP metadata found.
-  return std::string("sbs");
+  return MediaType::UNKNOWN;
 }
 
 }  // namespace
@@ -69,10 +76,9 @@ AlbumCache::CacheData AlbumCache::Get(std::string_view filename) {
   }
 
   const FsEntry entry(fs::path(album_dir_) / filename);
-  util::StatusOr<std::string> stereo_type = GetStereoType(entry);
 
   CacheData cache_data;
-  cache_data.stereo_type = stereo_type.ok() ? *stereo_type : "sbs";
+  cache_data.media_type = GetMediaType(entry);
   cache_data.last_modified = GetLastModifiedTime(entry);
   cache_[std::string(filename)] = cache_data;
   return cache_data;
@@ -90,7 +96,8 @@ void AlbumCache::WriteCacheToFile() {
   }
   for (const auto& [filename, data] : cache_) {
     const int64_t ts = ChronoTimeToMillis(data.last_modified);
-    out << filename << " " << ts << " " << data.stereo_type << "\n";
+    out << filename << " " << ts << " " << MediaTypeToString(data.media_type)
+        << "\n";
   }
   out.close();
 }
@@ -103,9 +110,12 @@ void AlbumCache::ReadCacheFromFile() {
 
   std::string filename;
   int64_t last_modified;
-  std::string stereo_type;
-  while (in >> filename >> last_modified >> stereo_type) {
-    cache_[filename] = {ChronoTimeFromMillis(last_modified), stereo_type};
+  std::string media_type;
+  while (in >> filename >> last_modified >> media_type) {
+    cache_[filename] = {
+        .last_modified = ChronoTimeFromMillis(last_modified),
+        .media_type = MediaTypeFromString(media_type),
+    };
   }
   in.close();
 }

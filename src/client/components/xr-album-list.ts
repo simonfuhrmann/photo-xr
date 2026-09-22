@@ -97,7 +97,7 @@ export class XrAlbumList extends LitElement {
   }
 
   private renderAlbum(entry: types.AlbumEntry) {
-    if (entry.type !== types.EntryType.ALBUM) return nothing;
+    if (entry.media !== types.MediaType.ALBUM) return nothing;
     const albumPath = `${this.path}/${entry.name}`;
     const isOpen = this.selected === entry.name;
     const onClick = () => {

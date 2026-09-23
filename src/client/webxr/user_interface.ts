@@ -39,7 +39,7 @@ export class UserInterface {
   }
 
   private createInterface() {
-    // --- 3️⃣ Shared material (semi-transparent gray) ---
+    // Shared material (semi-transparent gray)
     const material = new THREE.MeshBasicMaterial({
       color: 0x888888,
       transparent: true,
@@ -47,7 +47,7 @@ export class UserInterface {
       depthWrite: false, // better for UI
     });
 
-    // --- 4️⃣ Create planes ---
+    // Create planes.
     const planeWidth = 0.5;
     const planeHeight = 0.3;
 
@@ -57,7 +57,7 @@ export class UserInterface {
     const centerPlane = new THREE.Mesh(geometry, material);
     const rightPlane = new THREE.Mesh(geometry, material);
 
-    // --- 5️⃣ Layout inside group ---
+    // Layout inside group.
     const spacing = 0.65;
 
     // Left (media selection)
@@ -73,7 +73,7 @@ export class UserInterface {
     this.group.add(centerPlane);
     this.group.add(rightPlane);
 
-    // --- 6️⃣ Add to scene ---
+    // Add to scene.
     this.scene.add(this.group);
   }
 

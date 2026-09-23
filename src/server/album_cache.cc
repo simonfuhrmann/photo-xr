@@ -43,7 +43,7 @@ bool IsGphotoJpeg(const FsEntry& entry) {
   options.include_xmp_data = true;
   std::string_view path = entry.path().c_str();
   const util::StatusOr<util::ImageData> image = JpegRead(options, path);
-  if (image.ok()) return false;
+  if (!image.ok()) return false;
 
   const std::string& xmp_meta = image->xmp_metadata;
   return xmp_meta.find("xmlns:GImage") != std::string::npos &&

@@ -6,7 +6,8 @@ import * as stringUtils from '../modules/string_utils';
 export class PhotoRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
+  private textureLoader = new THREE.TextureLoader();
+  private eyesGroup = new THREE.Group();
 
   // The current media in two materials.
   private leftMaterial = new THREE.MeshBasicMaterial();
@@ -29,6 +30,9 @@ export class PhotoRenderer {
   changeMedia(media?: types.SelectedMedia) {
     this.cleanupResources();
     if (!media) return;
+
+    // Add the left/right sphere meshes to the scene.
+    this.scene.add(this.eyesGroup);
 
     const album = media.album;
     const entry = album.entries[media.index];
@@ -70,11 +74,11 @@ export class PhotoRenderer {
     // visibility for the eyes. Default layer is 0, put meshes only on 1 and 2.
     const leftMesh = new THREE.Mesh(geometry, this.leftMaterial);
     leftMesh.layers.set(1);
-    this.scene.add(leftMesh);
+    this.eyesGroup.add(leftMesh);
 
     const rightMesh = new THREE.Mesh(geometry, this.rightMaterial);
     rightMesh.layers.set(2);
-    this.scene.add(rightMesh);
+    this.eyesGroup.add(rightMesh);
   }
 
   private setSideBySidePhoto(media: types.SelectedMedia) {
@@ -130,6 +134,9 @@ export class PhotoRenderer {
   }
 
   private cleanupResources() {
+    // Remove the eyes geometry from the scene.
+    this.scene.remove(this.eyesGroup);
+
     // Clean up old textures.
     this.setMaterialTexture(this.leftMaterial, null);
     this.setMaterialTexture(this.rightMaterial, null);

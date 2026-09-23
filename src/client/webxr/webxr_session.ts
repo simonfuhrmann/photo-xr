@@ -72,6 +72,7 @@ export class WebXRSession {
   }
 
   cleanupSession() {
+    this.mediaRenderer.cleanupSession();
     this.renderer.xr.setSession(null);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
@@ -118,6 +119,7 @@ export class WebXRSession {
     // No-op.
   }
 
+  // TODO: Move input handling into MediaRenderer?
   private onButton(event: Event) {
     const ev = event as CustomEvent<ButtonEvent>;
     const buttonIndex = ev.detail.button;
@@ -133,6 +135,7 @@ export class WebXRSession {
     }
   }
 
+  // TODO: Move input handling into MediaRenderer?
   private onDirection(event: Event) {
     const ev = event as CustomEvent<DirectionEvent>;
     const dir = ev.detail.direction;

@@ -182,7 +182,20 @@ export class XrAppContent extends LitElement {
   }
 
   private async checkXR() {
-    this.xrAvailable = await isWebXRAvailable();
+    const update = async () => {
+      this.xrAvailable = await isWebXRAvailable();
+    };
+
+    navigator.xr?.addEventListener('devicechange', update);
+
+    // Give the emulator up to 2 seconds to boot up. This seems silly, but
+    // it did not work otherwise. After page start, isWebXRAvailable() would
+    // always return false.
+    for (let i = 0; i < 20; ++i) {
+      await update();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (this.xrAvailable) break;
+    }
   }
 
   private async enterXR() {

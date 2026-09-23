@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import { VRInput, ButtonEvent, DirectionEvent, StickDir } from './vr_input';
-import { MediaViewer } from './media_viewer';
+import { MediaRenderer } from './media_renderer';
 import { UserInterface } from './user_interface';
 
 /**
@@ -21,7 +21,7 @@ export class WebXRSession {
   private vrInput: VRInput;
 
   // The renderer for the eyes geometry.
-  private mediaViewer: MediaViewer;
+  private mediaRenderer: MediaRenderer;
 
   // The renderer for the user interface.
   private userInterface: UserInterface;
@@ -33,7 +33,7 @@ export class WebXRSession {
 
     // Set up the renderer and enable WebXR. Disable foveation since it causes
     // blurriness at the bottom of the rendering. Increasing the framebuffer
-    // scale is expensive, but I imagine to see a tiny difference. Need better
+    // scale is expensive, but I imagine seeing a tiny difference. Need better
     // test images to see the difference.
     this.renderer = new THREE.WebGLRenderer({ antialias: false });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -49,7 +49,7 @@ export class WebXRSession {
     this.vrInput.addEventListener('button', this.onButton.bind(this));
     this.vrInput.addEventListener('direction', this.onDirection.bind(this));
 
-    this.mediaViewer = new MediaViewer(this.renderer, this.scene);
+    this.mediaRenderer = new MediaRenderer(this.renderer, this.scene);
     this.userInterface = new UserInterface(this.renderer, this.scene);
 
     this.setCameraLayers();
@@ -125,11 +125,11 @@ export class WebXRSession {
     if (!pressed) return;
     // A-button is 4 (pause current video).
     if (buttonIndex === 4) {
-      this.mediaViewer.toggleVideoPause();
+      this.mediaRenderer.toggleVideoPause();
     }
     // B-button is 5 (toggle video mute).
     if (buttonIndex === 5) {
-      this.mediaViewer.toggleVideoMute();
+      this.mediaRenderer.toggleVideoMute();
     }
   }
 
@@ -147,6 +147,6 @@ export class WebXRSession {
     const album = this.media.album;
     const count = album.entries.length;
     this.media.index = (this.media.index + delta + count) % count;
-    this.mediaViewer.changeMedia(this.media);
+    this.mediaRenderer.changeMedia(this.media);
   }
 }

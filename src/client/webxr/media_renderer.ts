@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import * as stringUtils from '../modules/string_utils';
 
-export class MediaViewer {
+export class MediaRenderer {
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
   private textureLoader: THREE.TextureLoader = new THREE.TextureLoader();

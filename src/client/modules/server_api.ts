@@ -14,10 +14,6 @@ export class HttpError extends Error {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 // Sends a GET request to the given URL and returns JSON.
 async function getJson(url: string): Promise<any> {
   const response = await fetch(url, { method: 'GET' });

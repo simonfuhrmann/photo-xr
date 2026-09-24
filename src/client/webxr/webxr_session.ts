@@ -104,7 +104,7 @@ export class WebXRSession {
     if (this.userInterface.getUiVisible()) {
       this.camera.layers.enable(0);
     } else {
-      this.camera.layers.disable(0);
+      // this.camera.layers.disable(0);
     }
   }
 

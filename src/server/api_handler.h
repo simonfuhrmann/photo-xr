@@ -1,10 +1,12 @@
 #ifndef SRC_SERVER_API_HANDLER_H_
 #define SRC_SERVER_API_HANDLER_H_
 
+#include <filesystem>
 #include <map>
 #include <string>
 #include <string_view>
 
+#include "src/server/album_cache.h"
 #include "src/server/net/http_handler.h"
 #include "src/server/net/http_req_target.h"
 #include "src/server/util/status.h"
@@ -26,7 +28,7 @@ namespace server {
 //     "entries": [
 //       { type: "album", "name": "Iceland" },
 //       { type: "album", "name": "Japan" },
-//       { type: "photo", "name": "cover.jpg", "stereo": "gphoto" }
+//       { type: "photo", "name": "cover.jpg", "media": "IMAGE_SBS" }
 //     ]
 //   }
 //
@@ -43,7 +45,7 @@ namespace server {
 class ApiHandler : public net::HttpHandlerBase {
  public:
   struct Options {
-    std::string media_root;
+    const AlbumCache* album_cache = nullptr;
     std::map<std::string, std::string> reply_headers;
   };
 

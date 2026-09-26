@@ -17,10 +17,11 @@ namespace {
 
 net::HttpStaticFileHandler::Options GetFileHandlerOptions(
     const MediaHandler::Options& options) {
-  net::HttpStaticFileHandler::Options file_options;
-  file_options.root_dir = options.media_root;
-  file_options.path_prefix = "/media";
-  file_options.reply_headers = options.reply_headers;
+  net::HttpStaticFileHandler::Options file_options = {
+      .root_dir = options.album_cache->GetMediaRoot(),
+      .path_prefix = "/media",
+      .reply_headers = options.reply_headers,
+  };
   return file_options;
 }
 
@@ -47,7 +48,7 @@ util::Status MediaHandler::Handle(net::HttpRequest& request) const {
   const std::filesystem::path parent_path = file_path.parent_path();
   const std::filesystem::path filename = file_path.filename();
   AlbumCache cache(parent_path.string());
-  AlbumCache::CacheData cache_data = cache.Get(filename.string());
+  ASSIGN_OR_RETURN(AlbumCache::CacheData cache_data, cache.Get(filename));
   if (cache_data.media_type != MediaType::IMAGE_GPHOTO) {
     return net::HttpStaticFileHandler::Handle(request);
   }

@@ -1,6 +1,9 @@
 #include "src/server/web_server.h"
 
+#include <csignal>
 #include <iostream>
+
+#include "src/server/album_cache.h"
 
 namespace server {
 namespace {
@@ -14,22 +17,21 @@ net::HttpServer::Options GetHttpServerOptions(
   return http_options;
 }
 
-ApiHandler::Options GetApiHandlerOptions(const WebServer::Options& options) {
+std::string_view GetAlbumCacheOptions(const WebServer::Options& options) {
+  return options.media_root;
+}
+
+ApiHandler::Options GetApiHandlerOptions(const AlbumCache& album_cache) {
   ApiHandler::Options api_options;
-  api_options.media_root = options.media_root;
+  api_options.album_cache = &album_cache;
   api_options.reply_headers["Access-Control-Allow-Origin"] = "*";
   api_options.reply_headers["X-Content-Type-Options"] = "nosniff";
   return api_options;
 }
 
-net::HttpStaticPageHandler::Options GetErrorHandlerOptions() {
-  return net::HttpStaticPageHandler::Options();
-}
-
-MediaHandler::Options GetMediaHandlerOptions(
-    const WebServer::Options& options) {
+MediaHandler::Options GetMediaHandlerOptions(const AlbumCache& album_cache) {
   MediaHandler::Options media_options;
-  media_options.media_root = options.media_root;
+  media_options.album_cache = &album_cache;
   media_options.reply_headers["Cache-Control"] = "public, max-age=3600";
   media_options.reply_headers["Access-Control-Allow-Origin"] = "*";
   media_options.reply_headers["X-Content-Type-Options"] = "nosniff";
@@ -43,12 +45,17 @@ net::HttpStaticFileHandler::Options GetFileHandlerOptions() {
   return options;
 }
 
+net::HttpStaticPageHandler::Options GetErrorHandlerOptions() {
+  return net::HttpStaticPageHandler::Options();
+}
+
 }  // namespace
 
 WebServer::WebServer(const Options& options)
     : http_server_(GetHttpServerOptions(options)),
-      api_handler_(GetApiHandlerOptions(options)),
-      media_handler_(GetMediaHandlerOptions(options)),
+      album_cache_(GetAlbumCacheOptions(options)),
+      api_handler_(GetApiHandlerOptions(album_cache_)),
+      media_handler_(GetMediaHandlerOptions(album_cache_)),
       file_handler_(GetFileHandlerOptions()),
       error_handler_(GetErrorHandlerOptions()) {
   http_server_.RegisterHandler(&logger_handler_);
@@ -56,6 +63,7 @@ WebServer::WebServer(const Options& options)
   http_server_.RegisterHandler(&media_handler_);
   http_server_.RegisterHandler(&file_handler_);
   http_server_.RegisterHandler(&error_handler_);
+  signal_handler_.SetCallback(SIGINT, [this]() { Stop().IgnoreError(); });
 }
 
 WebServer::~WebServer() { Stop().IgnoreError(); }

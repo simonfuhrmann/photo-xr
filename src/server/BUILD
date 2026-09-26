@@ -68,6 +68,14 @@ cc_library(
 )
 
 cc_library(
+  name = "signal_handler",
+  hdrs = ["signal_handler.h"],
+  srcs = ["signal_handler.cc"],
+  deps = [
+  ],
+)
+
+cc_library(
   name = "stitch_vr180",
   hdrs = ["stitch_vr180.h"],
   srcs = ["stitch_vr180.cc"],
@@ -89,6 +97,7 @@ cc_library(
   deps = [
     ":api_handler",
     ":media_handler",
+    ":signal_handler",
     "//src/server/net:http_handler",
     "//src/server/net:http_server",
     "//src/server/util:status",

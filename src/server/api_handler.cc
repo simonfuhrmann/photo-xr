@@ -26,10 +26,11 @@ using FsEntry = fs::directory_entry;
 ApiHandler::ApiHandler(const Options& options) : options_(options) {}
 
 util::Status ApiHandler::Handle(net::HttpRequest& request) const {
-  // Only handle requests that start with "/api/".
   net::HttpReqTarget target;
   RETURN_IF_ERROR(target.Parse(request.GetRequestTarget()));
   const auto& path_components = target.GetPathComponents();
+
+  // Only handle requests that start with "/api/".
   if (path_components.empty() || path_components[0] != "api") {
     return util::AbortedError("Not an API request");
   }
@@ -49,37 +50,41 @@ util::Status ApiHandler::Handle(net::HttpRequest& request) const {
   return util::AbortedError("Invalid API request");
 }
 
-util::StatusOr<std::string> ApiHandler::GetLocalPath(
-    std::string_view req_path) const {
-  // Normalize the path and ensure it is under the photos root directory.
-  std::string local_path =
-      util::GetNormalizedPath(util::StrCat(options_.media_root, "/", req_path));
-  if (!util::HasPrefix(local_path, options_.media_root)) {
-    return util::AbortedError("Invalid path");
+util::StatusOr<fs::path> GetReqAlbumPath(const net::HttpReqTarget& target) {
+  const std::string_view path = target.GetParam("path");
+  if (path.empty() || path[0] != '/') {
+    return util::InvalidArgumentError("Album path must be absolute");
   }
-  // Make sure the path exists in the file system.
-  if (!fs::exists(local_path)) {
-    return util::AbortedError("Path not found");
-  }
-  return local_path;
+  const size_t start = path.find_first_not_of('/');
+  if (start == std::string_view::npos) return fs::path();
+  return fs::path(path.substr(start));
 }
 
 util::Status ApiHandler::HandleAlbumRequest(
     net::HttpRequest& request, const net::HttpReqTarget& target) const {
-  const std::string_view album_path = target.GetParam("path");
-  ASSIGN_OR_RETURN(const std::string local_path, GetLocalPath(album_path));
+  const AlbumCache& album_cache = *options_.album_cache;
+  const fs::path& media_root = album_cache.GetMediaRoot();
+  ASSIGN_OR_RETURN(const fs::path rel_album_path, GetReqAlbumPath(target));
+  const fs::path abs_album_path = media_root / rel_album_path;
 
+  // Ensure the request path is under the media root.
+  const std::string norm_path = util::GetNormalizedPath(abs_album_path.c_str());
+  if (!util::HasPrefix(norm_path, media_root.c_str())) {
+    return util::AbortedError("Invalid path");
+  }
+  // Ensure the path exists in the file system.
+  if (!fs::exists(abs_album_path)) {
+    return util::AbortedError("Path not found");
+  }
   // Check if the album path is a directory.
-  if (!fs::is_directory(local_path)) {
+  if (!fs::is_directory(abs_album_path)) {
     return util::AbortedError("Album not found");
   }
-
-  AlbumCache album_cache(local_path);
 
   // Read the directory contents.
   std::vector<FsEntry> albums;
   std::vector<FsEntry> files;
-  for (const FsEntry& entry : fs::directory_iterator(local_path)) {
+  for (const FsEntry& entry : fs::directory_iterator(abs_album_path)) {
     if (entry.is_directory()) {
       albums.push_back(entry);
     } else if (IsMediaFile(entry)) {
@@ -91,24 +96,28 @@ util::Status ApiHandler::HandleAlbumRequest(
   std::sort(albums.begin(), albums.end());
   std::sort(files.begin(), files.end());
 
-  // Convert to JSON: directories to albums and files to photos.
+  // Convert to JSON: directories to albums and files to media.
   util::Json::Array entries;
   for (const FsEntry& album : albums) {
     util::Json::Object album_entry;
-    album_entry["name"] = album.path().filename().string();
+    album_entry["name"] = album.path().filename();
     album_entry["media"] = "ALBUM";
     entries.push_back(album_entry);
   }
   for (const FsEntry& file : files) {
-    const std::string file_path = file.path().filename().string();
-    AlbumCache::CacheData cache_data = album_cache.Get(file_path);
+    const fs::path filename = file.path().filename();
+    util::StatusOr<AlbumCache::CacheData> cache_data =
+        album_cache.Get(rel_album_path / filename);
+    if (!cache_data.ok()) continue;
+    if (cache_data->media_type == MediaType::UNKNOWN) continue;
+
     util::Json::Object photo_entry;
-    photo_entry["name"] = file_path;
-    photo_entry["media"] = MediaTypeToString(cache_data.media_type);
+    photo_entry["name"] = filename;
+    photo_entry["media"] = MediaTypeToString(cache_data->media_type);
     entries.push_back(photo_entry);
   }
   util::Json::Object json_response;
-  json_response["path"] = std::string(album_path);
+  json_response["path"] = std::string(rel_album_path);
   json_response["entries"] = std::move(entries);
   util::Json json(json_response);
 

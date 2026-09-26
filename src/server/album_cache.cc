@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <string_view>
 
 #include "src/server/file_utils.h"
@@ -17,11 +18,10 @@ namespace {
 
 namespace fs = std::filesystem;
 using FsEntry = fs::directory_entry;
-using FsTime = std::filesystem::file_time_type;
+using FsTime = fs::file_time_type;
 
-std::string GetCacheFile(std::string_view album_dir) {
-  return std::string(album_dir) + "/.photoxr.cache";
-}
+constexpr std::string_view kCacheFile = ".photoxr.cache";
+constexpr int kCacheVersion = 1;
 
 int64_t ChronoTimeToMillis(const FsTime& time) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -31,6 +31,34 @@ int64_t ChronoTimeToMillis(const FsTime& time) {
 
 FsTime ChronoTimeFromMillis(int64_t millis) {
   return FsTime(std::chrono::milliseconds(millis));
+}
+
+bool ReadCacheFileEntry(std::ifstream& in, fs::path* filename,
+                        AlbumCache::CacheData* data) {
+  if (in.eof()) return false;
+
+  std::string filename_str;
+  int64_t last_modified;
+  std::string media_type;
+  std::getline(in, filename_str, '\t');
+  in >> last_modified >> media_type;
+  in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  if (in.eof()) return false;
+
+  *filename = filename_str;
+  data->last_modified = ChronoTimeFromMillis(last_modified);
+  data->media_type = MediaTypeFromString(media_type);
+  return true;
+}
+
+void WriteCacheFileEntry(std::ostream& out, const fs::path& filename,
+                         const AlbumCache::CacheData& data) {
+  out << filename.c_str() << "\t" << ChronoTimeToMillis(data.last_modified)
+      << "\t" << MediaTypeToString(data.media_type) << "\n";
+}
+
+fs::path GetCacheFile(const fs::path& media_root) {
+  return media_root / kCacheFile;
 }
 
 FsTime GetLastModifiedTime(const FsEntry& entry) {
@@ -62,60 +90,90 @@ MediaType GetMediaType(const FsEntry& entry) {
 
 }  // namespace
 
-AlbumCache::AlbumCache(std::string_view album_dir) : album_dir_(album_dir) {
+AlbumCache::AlbumCache(std::string_view media_root)
+    : media_root_(media_root), cache_file_(GetCacheFile(media_root)) {
   ReadCacheFromFile();
 }
 
 AlbumCache::~AlbumCache() { WriteCacheToFile(); }
 
-AlbumCache::CacheData AlbumCache::Get(std::string_view filename) {
+const std::filesystem::path AlbumCache::GetMediaRoot() const {
+  return media_root_;
+}
+
+util::StatusOr<AlbumCache::CacheData> AlbumCache::Get(
+    const fs::path& filename) const {
   // TODO: Check if the file has changed.
-  const auto it = cache_.find(std::string(filename));
-  if (it != cache_.end()) {
-    return it->second;
+  {
+    std::scoped_lock<std::mutex> lock(mutex_);
+    const auto it = cache_.find(filename);
+    if (it != cache_.end()) {
+      return it->second;
+    }
   }
 
-  const FsEntry entry(fs::path(album_dir_) / filename);
-
+  const FsEntry entry(media_root_ / filename);
   CacheData cache_data;
   cache_data.media_type = GetMediaType(entry);
   cache_data.last_modified = GetLastModifiedTime(entry);
-  cache_[std::string(filename)] = cache_data;
+
+  std::scoped_lock<std::mutex> lock(mutex_);
+  cache_[filename] = cache_data;
   return cache_data;
 }
 
 void AlbumCache::WriteCacheToFile() {
+  std::scoped_lock<std::mutex> lock(mutex_);
   if (cache_.empty()) return;
 
-  const std::string cache_file = GetCacheFile(album_dir_);
-  std::ofstream out(cache_file);
+  std::cout << "Writing cache to " << cache_file_ << " ...\n";
+  std::ofstream out(cache_file_);
   if (!out) {
-    std::cerr << "Failed to open cache file for writing: " << cache_file
-              << std::endl;
+    std::cerr << "Failed to open cache for writing: " << cache_file_ << "\n";
     return;
   }
+
+  // Write the version and entries to the cache.
+  out << "version " << kCacheVersion << "\n";
   for (const auto& [filename, data] : cache_) {
-    const int64_t ts = ChronoTimeToMillis(data.last_modified);
-    out << filename << " " << ts << " " << MediaTypeToString(data.media_type)
-        << "\n";
+    WriteCacheFileEntry(out, filename, data);
   }
   out.close();
 }
 
 void AlbumCache::ReadCacheFromFile() {
   // Cache file may not exist on the first run.
-  const std::string cache_file = GetCacheFile(album_dir_);
-  std::ifstream in(cache_file);
+  std::cout << "Reading cache from " << cache_file_ << " ...\n";
+  std::ifstream in(cache_file_);
   if (!in) return;
 
-  std::string filename;
-  int64_t last_modified;
-  std::string media_type;
-  while (in >> filename >> last_modified >> media_type) {
-    cache_[filename] = {
-        .last_modified = ChronoTimeFromMillis(last_modified),
-        .media_type = MediaTypeFromString(media_type),
-    };
+  // Read the version from the cache file. If version is too low, discard cache.
+  std::string version_str;
+  int version_int;
+  in >> version_str >> version_int;
+  in.ignore(1, '\n');
+  std::cout << "Version: " << version_str << " " << version_int << "\n";
+  if (version_str != "version") {
+    std::cout << "Cache is not versioned, discarding\n";
+    return;
+  }
+
+  // Discard cache if the cache version does not match.
+  if (version_int < kCacheVersion) {
+    std::cout << "Cache version is outdated, discarding\n";
+    return;
+  } else if (version_int > kCacheVersion) {
+    std::cout << "Cache version is too recent, discarding\n";
+    return;
+  }
+
+  {
+    std::scoped_lock<std::mutex> lock(mutex_);
+    fs::path filename;
+    CacheData cache_data;
+    while (ReadCacheFileEntry(in, &filename, &cache_data)) {
+      cache_[filename] = cache_data;
+    }
   }
   in.close();
 }

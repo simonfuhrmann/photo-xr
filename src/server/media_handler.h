@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 
+#include "src/server/album_cache.h"
 #include "src/server/net/http_handler.h"
 #include "src/server/net/http_request.h"
 #include "src/server/util/status.h"
@@ -19,7 +20,7 @@ namespace server {
 class MediaHandler : public net::HttpStaticFileHandler {
  public:
   struct Options {
-    std::string media_root;
+    const AlbumCache* album_cache = nullptr;
     std::map<std::string, std::string> reply_headers;
   };
 

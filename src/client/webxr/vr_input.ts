@@ -8,25 +8,41 @@ export enum StickDir {
   LEFT,
   RIGHT,
   UP,
-  DOWN
+  DOWN,
 }
 
-export type ButtonEvent = {
-  gamepad: Gamepad,
-  button: number,
-  pressed: boolean,
-};
+export interface ButtonEvent {
+  gamepad: Gamepad;
+  button: number;
+  pressed: boolean;
+}
 
-export type DirectionEvent = {
-  gamepad: Gamepad,
-  direction: StickDir,
-};
+export interface DirectionEvent {
+  gamepad: Gamepad;
+  direction: StickDir;
+}
+
+export interface GamepadState {
+  // The pressed state of each button by button index. Note that elements can
+  // be undefined and should be treated as "not pressed". To test the state of
+  // a button, use `buttons[i] ?? false`.
+  buttons: boolean[];
+
+  // The direction of the thumb stick. The controller is assumed to have one
+  // thumbstick, and the axis with max magnitude takes precedence. A generous
+  // dead zone is applied.
+  stickDir: StickDir;
+
+  // The raw (X, Y) value of the thumb stick in [-1, 1] x [-1, 1]. The magnitude
+  // of (X, Y) is ~0 at rest, and ~1 when fully pressed in a direction.
+  axisX: number;
+  axisY: number;
+}
 
 export class VRInput extends EventTarget {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private buttons: Map<Gamepad, boolean[]> = new Map();
-  private stickDir: Map<Gamepad, StickDir> = new Map();
+  private state: Map<Gamepad, GamepadState> = new Map();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     super();
@@ -97,33 +113,30 @@ export class VRInput extends EventTarget {
     this.handleAxesXY(gamepad, axisX, axisY);
   }
 
+  // The (axisX, axisY) report values in [-1, 1] x [-1, 1], where (-1, 0) is
+  // the stick pushed to the left, and (0, -1) is the stick pushed to the top.
+  // The magnitude of (axisX, axisY) is 0 at rest, and ~1 when fully pushed.
   private handleAxesXY(gamepad: Gamepad, axisX: number, axisY: number) {
-    const ACTIVATE = 0.6;   // Minimum magnitude to trigger.
-    const RELEASE = 0.3;   // Must return to this value to reset.
-    const absX = Math.abs(axisX);
-    const absY = Math.abs(axisY);
+    const stickDir = getStickDirection(axisX, axisY);
+    const state = this.state.get(gamepad) ?? getInitGamepadState();
+    const stickDirChange = stickDir !== state.stickDir;
 
-    if (absX < RELEASE && absY < RELEASE) {
-      this.onDirection(gamepad, StickDir.CENTER);
-    } else if (absX > absY && absX > ACTIVATE) {
-      this.onDirection(gamepad, axisX > 0 ? StickDir.RIGHT : StickDir.LEFT);
-    } else if (absY > absX && absY > ACTIVATE) {
-      this.onDirection(gamepad, axisY > 0 ? StickDir.UP : StickDir.DOWN);
+    state.axisX = axisX;
+    state.axisY = axisY;
+    state.stickDir = stickDir ?? state.stickDir;
+    this.state.set(gamepad, state);
+
+    if (stickDir && stickDirChange) {
+      const detail = { gamepad, direction: stickDir };
+      this.dispatchEvent(new CustomEvent('direction', { detail }));
     }
   }
 
-  private onDirection(gamepad: Gamepad, dir: StickDir) {
-    if (this.stickDir.get(gamepad) === dir) return; // No change.
-    this.stickDir.set(gamepad, dir);
-    const detail = { gamepad, direction: dir };
-    this.dispatchEvent(new CustomEvent('direction', { detail }));
-  }
-
   private onButton(gamepad: Gamepad, button: number, pressed: boolean) {
-    const buttons = this.buttons.get(gamepad) || [];
-    if ((buttons[button] ?? false) === pressed) return; // No change.
-    buttons[button] = pressed;
-    this.buttons.set(gamepad, buttons);
+    const state = this.state.get(gamepad) ?? getInitGamepadState();
+    if ((state.buttons[button] ?? false) === pressed) return; // No change.
+    state.buttons[button] = pressed;
+    this.state.set(gamepad, state);
 
     const detail = { gamepad, button, pressed };
     this.dispatchEvent(new CustomEvent('button', { detail }));
@@ -153,4 +166,32 @@ function getDirectionalLight() {
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
   dirLight.position.set(1, 1, 1);
   return dirLight;
+}
+
+function getInitGamepadState(): GamepadState {
+  return {
+    axisX: 0,
+    axisY: 0,
+    buttons: [],
+    stickDir: StickDir.CENTER,
+  };
+}
+
+// Returns the stick direction for coordinates with a clear direction, but
+// returns `undefined` for many cases, e.g., to implement hysteresis. When
+// `undefined` is returned, the previous state must be assumed.
+function getStickDirection(axisX: number, axisY: number): StickDir | undefined {
+  const ACTIVATE = 0.6;  // Minimum magnitude to trigger.
+  const RELEASE = 0.3;   // Must return to this value to reset.
+  const absX = Math.abs(axisX);
+  const absY = Math.abs(axisY);
+
+  if (absX < RELEASE && absY < RELEASE) {
+    return StickDir.CENTER;
+  } else if (absX > absY && absX > ACTIVATE) {
+    return axisX > 0 ? StickDir.RIGHT : StickDir.LEFT;
+  } else if (absY > absX && absY > ACTIVATE) {
+    return axisY > 0 ? StickDir.DOWN : StickDir.UP;
+  }
+  return undefined;
 }

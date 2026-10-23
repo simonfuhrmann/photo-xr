@@ -22,10 +22,6 @@ export class UserInterface {
     }
   }
 
-  getUiVisible() {
-    return this.uiVisible;
-  }
-
   showUi() {
     const camPos = new THREE.Vector3();
     const camDir = new THREE.Vector3();

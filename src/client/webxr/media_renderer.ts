@@ -13,8 +13,8 @@ export class MediaRenderer {
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     this.renderer = renderer;
     this.scene = scene;
-    this.photoRenderer = new PhotoRenderer(renderer, scene);
-    this.splatRenderer = new SplatRenderer(renderer, scene);
+    this.photoRenderer = new PhotoRenderer(this.renderer, this.scene);
+    this.splatRenderer = new SplatRenderer(this.renderer, this.scene);
   }
 
   cleanupSession() {

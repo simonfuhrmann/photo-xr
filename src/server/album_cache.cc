@@ -152,7 +152,6 @@ void AlbumCache::ReadCacheFromFile() {
   int version_int;
   in >> version_str >> version_int;
   in.ignore(1, '\n');
-  std::cout << "Version: " << version_str << " " << version_int << "\n";
   if (version_str != "version") {
     std::cout << "Cache is not versioned, discarding\n";
     return;

@@ -98,20 +98,16 @@ export class WebXRSession {
   }
 
   private setCameraLayers() {
+    // This is visible by default.
+    this.camera.layers.enable(0);
     // Enable the hemisphere layers for this camera (default is 0 only).
     this.camera.layers.enable(1);
     this.camera.layers.enable(2);
-    if (this.userInterface.getUiVisible()) {
-      this.camera.layers.enable(0);
-    } else {
-      // this.camera.layers.disable(0);
-    }
   }
 
   // Called when the trigger is pressed, brings up the immersive UI.
   private onSelect(event: Event) {
     this.userInterface.toggleUi();
-    this.setCameraLayers();
   }
 
   // Called when the squeeze button is pressed, currently does nothing.

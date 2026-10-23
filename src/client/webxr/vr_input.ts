@@ -11,8 +11,16 @@ export enum StickDir {
   DOWN
 }
 
-export type ButtonEvent = { gamepad: Gamepad, button: number, pressed: boolean };
-export type DirectionEvent = { gamepad: Gamepad, direction: StickDir };
+export type ButtonEvent = {
+  gamepad: Gamepad,
+  button: number,
+  pressed: boolean,
+};
+
+export type DirectionEvent = {
+  gamepad: Gamepad,
+  direction: StickDir,
+};
 
 export class VRInput extends EventTarget {
   private renderer: THREE.WebGLRenderer;
@@ -99,10 +107,8 @@ export class VRInput extends EventTarget {
       this.onDirection(gamepad, StickDir.CENTER);
     } else if (absX > absY && absX > ACTIVATE) {
       this.onDirection(gamepad, axisX > 0 ? StickDir.RIGHT : StickDir.LEFT);
-      return;
     } else if (absY > absX && absY > ACTIVATE) {
       this.onDirection(gamepad, axisY > 0 ? StickDir.UP : StickDir.DOWN);
-      return;
     }
   }
 

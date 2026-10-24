@@ -13,7 +13,7 @@ export enum StickDir {
 
 export interface ButtonEvent {
   gamepad: Gamepad;
-  button: number;
+  index: number;
   pressed: boolean;
 }
 
@@ -23,10 +23,13 @@ export interface DirectionEvent {
 }
 
 export interface GamepadState {
-  // The pressed state of each button by button index. Note that elements can
-  // be undefined and should be treated as "not pressed". To test the state of
-  // a button, use `buttons[i] ?? false`.
+  // A boolean pressed state, and value state in [0,1] of each button by button
+  // index. Usually, pressed is true if value > 0. Note that array elements can
+  // be undefined and should be treated as "not pressed" or 0, respectively.
+  // To get the pressed state of a button, use `buttons[i] ?? false`, or to get
+  // the value state of a button, use `buttonValues[i] ?? 0.0`.
   buttons: boolean[];
+  buttonValues: number[];
 
   // The direction of the thumb stick. The controller is assumed to have one
   // thumbstick, and the axis with max magnitude takes precedence. A generous
@@ -77,16 +80,30 @@ export class VRInput extends EventTarget {
     this.scene.add(getDirectionalLight());
   }
 
+  // The spec considers two types of controllers see
+  // https://www.w3.org/TR/webxr-gamepads-module-1/#example-mappings
+  //
+  // 1. Controllers with a touchpad, with axes[0] and axes[1], and the touchpad
+  //    button is buttons[2].
+  // 2. Controllers with a thumbstick, with axes[2] and axes[3], and the
+  //    thumbsick button is buttons[3].
+  //
+  // Controllers always have a trigger button (buttons[0]), can have a
+  // squeeze (buttons[1]), can have an A-button (buttons[4]) and can have a
+  // B-button (buttons[5]).
+  //
+  // Each button state also has a value in [0,1] for intermediate presses on
+  // analog buttons (usually the trigger and squeeze buttons). Binary buttons
+  // such as A and B buttons also report a value, but just either 0 or 1. The
+  // pressed state of a button is true if value > 0.
   pollInputs() {
     const session = this.renderer.xr.getSession();
     if (!session) return;
     session.inputSources.forEach((source) => {
-      const gamepad = source.gamepad;
-      if (!gamepad) return;
-      gamepad.buttons.forEach((button, index) => {
-        this.onButton(gamepad, index, button.pressed);
-      });
-      this.handleAxes(gamepad);
+      if (!source.gamepad) return;
+      const state = this.state.get(source.gamepad) ?? getInitGamepadState();
+      this.handleButtons(source.gamepad, state);
+      this.handleAxes(source.gamepad, state);
     });
   }
 
@@ -100,8 +117,29 @@ export class VRInput extends EventTarget {
     this.dispatchEvent(new CustomEvent('squeeze', { detail }));
   }
 
-  // Select the x/y axes with the largest magnitude.
-  private handleAxes(gamepad: Gamepad) {
+  private handleButtons(gamepad: Gamepad, state: GamepadState) {
+    gamepad.buttons.forEach((button, index) => {
+      const pressed = button.pressed;
+      const value = button.value;
+
+      const pressedChange = (state.buttons[index] ?? false) !== pressed;
+      state.buttons[index] = pressed;
+      state.buttonValues[index] = value;
+      this.state.set(gamepad, state);
+
+      // Emit 'button' event on pressed state change.
+      if (pressedChange) {
+        const detail = { gamepad, index, pressed };
+        this.dispatchEvent(new CustomEvent('button', { detail }));
+      }
+    });
+  }
+
+  // The (axisX, axisY) report values in [-1, 1] x [-1, 1], where (-1, 0) is
+  // the stick pushed to the left, and (0, -1) is the stick pushed to the top.
+  // The magnitude of (axisX, axisY) is 0 at rest, and ~1 when fully pushed.
+  private handleAxes(gamepad: Gamepad, state: GamepadState) {
+    // Select the x/y axes with the largest magnitude.
     const x0 = gamepad.axes[0] ?? 0.0;
     const y0 = gamepad.axes[1] ?? 0.0;
     const x1 = gamepad.axes[2] ?? 0.0;
@@ -110,36 +148,20 @@ export class VRInput extends EventTarget {
     const mag1 = x1 * x1 + y1 * y1;
     const axisX = mag0 > mag1 ? x0 : x1;
     const axisY = mag0 > mag1 ? y0 : y1;
-    this.handleAxesXY(gamepad, axisX, axisY);
-  }
 
-  // The (axisX, axisY) report values in [-1, 1] x [-1, 1], where (-1, 0) is
-  // the stick pushed to the left, and (0, -1) is the stick pushed to the top.
-  // The magnitude of (axisX, axisY) is 0 at rest, and ~1 when fully pushed.
-  private handleAxesXY(gamepad: Gamepad, axisX: number, axisY: number) {
+    // Update the state.
     const stickDir = getStickDirection(axisX, axisY);
-    const state = this.state.get(gamepad) ?? getInitGamepadState();
     const stickDirChange = stickDir !== state.stickDir;
-
     state.axisX = axisX;
     state.axisY = axisY;
     state.stickDir = stickDir ?? state.stickDir;
     this.state.set(gamepad, state);
 
+    // Emit 'direction' event on stick direction state change.
     if (stickDir && stickDirChange) {
       const detail = { gamepad, direction: stickDir };
       this.dispatchEvent(new CustomEvent('direction', { detail }));
     }
-  }
-
-  private onButton(gamepad: Gamepad, button: number, pressed: boolean) {
-    const state = this.state.get(gamepad) ?? getInitGamepadState();
-    if ((state.buttons[button] ?? false) === pressed) return; // No change.
-    state.buttons[button] = pressed;
-    this.state.set(gamepad, state);
-
-    const detail = { gamepad, button, pressed };
-    this.dispatchEvent(new CustomEvent('button', { detail }));
   }
 }
 
@@ -173,6 +195,7 @@ function getInitGamepadState(): GamepadState {
     axisX: 0,
     axisY: 0,
     buttons: [],
+    buttonValues: [],
     stickDir: StickDir.CENTER,
   };
 }

@@ -107,7 +107,7 @@ export class WebXRSession {
 
   // Called when the trigger is pressed, brings up the immersive UI.
   private onSelect(event: Event) {
-    this.userInterface.toggleUi();
+    // this.userInterface.toggleUi();
   }
 
   // Called when the squeeze button is pressed, currently does nothing.
@@ -118,15 +118,19 @@ export class WebXRSession {
   // TODO: Move input handling into MediaRenderer?
   private onButton(event: Event) {
     const ev = event as CustomEvent<ButtonEvent>;
-    const buttonIndex = ev.detail.button;
+    const buttonIndex = ev.detail.index;
     const pressed = ev.detail.pressed;
-    if (!pressed) return;
+
+    // Trigger button is 0 (show/hide UI).
+    if (!pressed && buttonIndex === 0) {
+      this.userInterface.toggleUi();
+    }
     // A-button is 4 (pause current video).
-    if (buttonIndex === 4) {
+    if (pressed && buttonIndex === 4) {
       this.mediaRenderer.toggleVideoPause();
     }
     // B-button is 5 (toggle video mute).
-    if (buttonIndex === 5) {
+    if (pressed && buttonIndex === 5) {
       this.mediaRenderer.toggleVideoMute();
     }
   }

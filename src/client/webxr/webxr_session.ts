@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
-import { VRInput, ButtonEvent, DirectionEvent, StickDir } from './vr_input';
+import { VRInput, ButtonId, ButtonEvent, DirectionEvent, StickDir } from './vr_input';
 import { MediaRenderer } from './media_renderer';
 import { UserInterface } from './user_interface';
 
@@ -19,6 +19,7 @@ export class WebXRSession {
 
   // VR input handling.
   private vrInput: VRInput;
+  private moveMode = false;
 
   // The renderer for the eyes geometry.
   private mediaRenderer: MediaRenderer;
@@ -85,6 +86,7 @@ export class WebXRSession {
       xrCameras.cameras[1].layers.enable(2); // right eye
     }
     this.vrInput.pollInputs();
+    this.mediaRenderer.processInput(this.vrInput);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -121,16 +123,21 @@ export class WebXRSession {
     const buttonIndex = ev.detail.index;
     const pressed = ev.detail.pressed;
 
-    // Trigger button is 0 (show/hide UI).
-    if (!pressed && buttonIndex === 0) {
+    // Trigger button to show/hide UI.
+    if (!pressed && buttonIndex === ButtonId.TRIGGER) {
       this.userInterface.toggleUi();
     }
-    // A-button is 4 (pause current video).
-    if (pressed && buttonIndex === 4) {
+    // Squeeze button to start/stop splat movement.
+    if (buttonIndex === ButtonId.SQUEEZE) {
+      this.moveMode = pressed;
+      this.mediaRenderer.setSplatMoveMode(this.moveMode);
+    }
+    // A-button to pause/unpause current video.
+    if (pressed && buttonIndex === ButtonId.BUTTON_A) {
       this.mediaRenderer.toggleVideoPause();
     }
-    // B-button is 5 (toggle video mute).
-    if (pressed && buttonIndex === 5) {
+    // B-button to mute/unmute current video.
+    if (pressed && buttonIndex === ButtonId.BUTTON_B) {
       this.mediaRenderer.toggleVideoMute();
     }
   }
@@ -145,6 +152,7 @@ export class WebXRSession {
 
   private onChangeMedia(delta: number) {
     if (!this.media) return;
+    if (this.moveMode) return;
 
     // Advance the media index.
     const album = this.media.album;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import { PhotoRenderer } from './photo_renderer';
 import { SplatRenderer } from './splat_renderer'
+import { VRInput } from './vr_input';
 
 export class MediaRenderer {
   private renderer: THREE.WebGLRenderer;
@@ -41,11 +42,19 @@ export class MediaRenderer {
     }
   }
 
+  processInput(vrInput: VRInput) {
+    this.splatRenderer.processInput(vrInput);
+  }
+
   toggleVideoPause() {
     this.photoRenderer.toggleVideoPause();
   }
 
   toggleVideoMute() {
     this.photoRenderer.toggleVideoMute();
+  }
+
+  setSplatMoveMode(start: boolean) {
+    this.splatRenderer.setMoveMode(start);
   }
 }

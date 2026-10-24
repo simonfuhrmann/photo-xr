@@ -11,6 +11,16 @@ export enum StickDir {
   DOWN,
 }
 
+// https://www.w3.org/TR/webxr-gamepads-module-1/#example-mappings
+export enum ButtonId {
+  TRIGGER = 0,
+  SQUEEZE = 1,
+  TOUCHPAD = 2,
+  THUMBSTICK = 3,
+  BUTTON_A = 4,
+  BUTTON_B = 5,
+}
+
 export interface ButtonEvent {
   gamepad: Gamepad;
   index: number;
@@ -60,6 +70,10 @@ export class VRInput extends EventTarget {
       controller.addEventListener('squeeze',
         this.onSqueeze.bind(this, controller));
     }
+  }
+
+  getState(): Map<Gamepad, GamepadState> {
+    return this.state;
   }
 
   // Create two controllers, and add controller models and their rays.

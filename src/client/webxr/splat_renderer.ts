@@ -9,16 +9,17 @@ export class SplatRenderer {
   private scene: THREE.Scene;
   private sparkRenderer?: SparkRenderer;
   private splatMesh?: SplatMesh;
+  private splatPivot = new THREE.Group();
 
   // In move mode, the controller transforms the splat.
   private moveMode = false;
-  private baseRotation = new THREE.Quaternion(1, 0, 0, 0);
-  private basePosition = new THREE.Vector3(0, 0, 0);
-  private userPosition = new THREE.Vector3(0, 0, 0);
+  private pivotRot = new THREE.Quaternion();
+  private pivotPos = new THREE.Vector3();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     this.renderer = renderer;
     this.scene = scene;
+    this.scene.add(this.splatPivot);
     this.sparkRenderer = new SparkRenderer({
       renderer: this.renderer,
       // enableLod: true,
@@ -31,7 +32,10 @@ export class SplatRenderer {
     if (!media || !this.sparkRenderer) return;
 
     // Reset user transformations.
-    this.userPosition = new THREE.Vector3(0, 0, 0);
+    this.pivotPos.set(0, 0.75, -0.5);
+    this.pivotRot.set(0, 0, 0, 1);
+    this.splatPivot.position.copy(this.pivotPos);
+    this.splatPivot.quaternion.copy(this.pivotRot);
 
     this.scene.add(this.sparkRenderer);
     this.splatMesh = new SplatMesh({
@@ -55,16 +59,41 @@ export class SplatRenderer {
       if (Math.abs(state.axisX) > Math.abs(axisX)) axisX = state.axisX;
     }
 
-    // Move the splat.
+    // Deadzone for both movement and rotation.
+    const magnitude = Math.max(Math.abs(axisX), Math.abs(axisY));
+    if (magnitude < 0.1) return;
+
+    // Move or rotate the splat, depending on the axis with larger magnitude.
+    if (Math.abs(axisX) > Math.abs(axisY)) {
+      this.rotateSplatPivot(axisX);
+    } else {
+      this.moveSplatPivot(axisY);
+    }
+  }
+
+  private rotateSplatPivot(axis: number) {
+    // Configuration.
+    const deltaTime = 1.0 / 60.0;  // TODO: Assume 60 fps.
+    const rotPerSec = 2.0;  // Max rotation in rad per second.
+
+    // Rotate the splat.
+    const rotRadY = axis * rotPerSec * deltaTime;
+    const rotAxis = new THREE.Vector3(0, 1, 0);
+    const rotY = new THREE.Quaternion().setFromAxisAngle(rotAxis, rotRadY);
+    this.pivotRot.multiplyQuaternions(rotY, this.pivotRot);
+    this.splatPivot.quaternion.copy(this.pivotRot);
+  }
+
+  private moveSplatPivot(axis: number) {
+    // Configuration.
     const deltaTime = 1.0 / 60.0;  // TODO: Assume 60 fps.
     const distPerSec = 0.5;        // Max movement in meters per second.
-    const moveY = -axisY * distPerSec * deltaTime;
-    const oldPos = this.userPosition;
-    this.userPosition.set(oldPos.x, oldPos.y + moveY, oldPos.z);
-    this.splatMesh.position.set(
-      this.basePosition.x + this.userPosition.x,
-      this.basePosition.y + this.userPosition.y,
-      this.basePosition.z + this.userPosition.z);
+
+    // Move the splat.
+    const moveY = -axis * distPerSec * deltaTime;
+    const pos = this.pivotPos;
+    pos.set(pos.x, pos.y + moveY, pos.z);
+    this.splatPivot.position.copy(pos);
   }
 
   setMoveMode(move: boolean) {
@@ -73,8 +102,9 @@ export class SplatRenderer {
 
   private cleanupResources() {
     if (this.splatMesh) {
-      this.scene.remove(this.splatMesh);
+      this.splatPivot.remove(this.splatMesh);
       this.splatMesh.dispose();
+      this.splatMesh = undefined;
     }
     if (this.sparkRenderer) {
       this.scene.remove(this.sparkRenderer);
@@ -94,7 +124,6 @@ export class SplatRenderer {
 
     // Configuration.
     const maxSizeM = 0.5;  // Longest AABB side (in meters).
-    const elevateM = 0.75;  // Elevate above ground (in meters).
 
     // The order of scale, rotate and position calls is irrelevant. The final
     // transformation matrix is always computed as: T * R * S.
@@ -110,19 +139,17 @@ export class SplatRenderer {
 
     // Perform a 180° rotation around X to account for the different coordinate 
     // system of WebGL and typical Splat software (Brush, SuperSplat, etc.).
-    this.baseRotation.set(1, 0, 0, 0);
-    this.splatMesh.quaternion.copy(this.baseRotation);
+    this.splatMesh.quaternion.set(1, 0, 0, 0);
 
-    // Position the rotated/scaled bounding-box center at (0, 0, -3), and
-    // move the mesh up by some elevation, so it stands in front of the eyes.
-    this.basePosition.set(
+    // Position the rotated/scaled AABB center at (0, h/2, 0). The h/2
+    // moves the mesh up by half the AAB height, so it stands on the ground.
+    this.splatMesh.position.set(
       -center.x * scale,
-      (center.y + size.y / 2) * scale + elevateM,
-      center.z * scale - 0.5,
+      (center.y + size.y / 2) * scale,
+      center.z * scale,
     );
-    this.splatMesh.position.copy(this.basePosition);
 
-    this.scene.add(this.splatMesh);
+    this.splatPivot.add(this.splatMesh);
   }
 
   private getMediaUrl(media: types.SelectedMedia) {

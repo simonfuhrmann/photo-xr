@@ -7,6 +7,7 @@ import 'oxygen-mdc/oxy-icons-image'
 
 import * as api from '../modules/server_api';
 import * as types from '../modules/client_types';
+import * as stringUtils from '../modules/string_utils';
 
 @customElement('xr-album-list')
 export class XrAlbumList extends LitElement {
@@ -92,13 +93,12 @@ export class XrAlbumList extends LitElement {
 
   private renderAlbums() {
     if (!this.apiData || !this.open) return nothing;
-    if (!this.open) return nothing;
     return this.apiData.entries.map(this.renderAlbum.bind(this));
   }
 
   private renderAlbum(entry: types.AlbumEntry) {
     if (entry.media !== types.MediaType.ALBUM) return nothing;
-    const albumPath = `${this.path}/${entry.name}`;
+    const albumPath = stringUtils.joinPaths(this.path, entry.name);
     const isOpen = this.selected === entry.name;
     const onClick = () => {
       this.selected = entry.name;
@@ -106,7 +106,7 @@ export class XrAlbumList extends LitElement {
     return html`
       <xr-album-list
           path="${albumPath}" 
-          name="${entry.name}/" 
+          name="${entry.name}/"
           ?open=${isOpen}
           @click=${onClick}>
       </xr-album-list>

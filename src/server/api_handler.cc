@@ -55,9 +55,7 @@ util::StatusOr<fs::path> GetReqAlbumPath(const net::HttpReqTarget& target) {
   if (path.empty() || path[0] != '/') {
     return util::InvalidArgumentError("Album path must be absolute");
   }
-  const size_t start = path.find_first_not_of('/');
-  if (start == std::string_view::npos) return fs::path();
-  return fs::path(path.substr(start));
+  return fs::path(path).lexically_normal().relative_path();
 }
 
 util::Status ApiHandler::HandleAlbumRequest(
@@ -117,7 +115,7 @@ util::Status ApiHandler::HandleAlbumRequest(
     entries.push_back(photo_entry);
   }
   util::Json::Object json_response;
-  json_response["path"] = std::string(rel_album_path);
+  json_response["path"] = "/" + rel_album_path.generic_string();
   json_response["entries"] = std::move(entries);
   util::Json json(json_response);
 

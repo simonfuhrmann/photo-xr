@@ -44,6 +44,7 @@ export class MediaRenderer {
 
   processInput(vrInput: VRInput) {
     this.splatRenderer.processInput(vrInput);
+    this.photoRenderer.processInput(vrInput);
   }
 
   toggleVideoPause() {
@@ -54,7 +55,8 @@ export class MediaRenderer {
     this.photoRenderer.toggleVideoMute();
   }
 
-  setSplatMoveMode(start: boolean) {
-    this.splatRenderer.setMoveMode(start);
+  setSqueezeState(squeezeHeld: boolean) {
+    this.photoRenderer.setSeekMode(squeezeHeld);
+    this.splatRenderer.setMoveMode(squeezeHeld);
   }
 }

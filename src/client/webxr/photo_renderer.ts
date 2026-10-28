@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
 import * as stringUtils from '../modules/string_utils';
+import { VRInput } from './vr_input';
 
 // Renderer for left/right eye photos and videos.
 export class PhotoRenderer {
@@ -16,6 +17,10 @@ export class PhotoRenderer {
   // The video element and texture to play back video media.
   private videoElement?: HTMLVideoElement;
   private videoTexture?: THREE.VideoTexture;
+
+  // In seek mode, left and right directions seek by 10 seconds.
+  private seekMode = false;
+  private hasSeekDir = false;
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     this.renderer = renderer;
@@ -45,6 +50,32 @@ export class PhotoRenderer {
     }
   }
 
+  processInput(vrInput: VRInput) {
+    if (!this.seekMode) return;
+
+    // Get the max controller axes.
+    const inputState = vrInput.getState();
+    let axisX = 0.0;
+    for (const [gamepad, state] of inputState) {
+      if (Math.abs(state.axisX) > Math.abs(axisX)) axisX = state.axisX;
+    }
+
+    // If axis is in deadzone, reset seek dir.
+    if (Math.abs(axisX) < 0.1) {
+      this.hasSeekDir = false;
+      return;
+    }
+
+    // If a direction is newly pressed, seek.
+    if (!this.hasSeekDir && axisX > 0.5) {
+      this.hasSeekDir = true;
+      this.seekVideo(/*seconds=*/10);
+    } else if (!this.hasSeekDir && axisX < -0.5) {
+      this.hasSeekDir = true;
+      this.seekVideo(/*seconds=*/-10);
+    }
+  }
+
   toggleVideoPause() {
     if (!this.videoElement) return;
     if (this.videoElement.paused) {
@@ -57,6 +88,22 @@ export class PhotoRenderer {
   toggleVideoMute() {
     if (!this.videoElement) return;
     this.videoElement.muted = !this.videoElement.muted;
+  }
+
+  seekVideo(seconds: number) {
+    if (!this.videoElement) return;
+    const video = this.videoElement;
+
+    // Duration may be NaN or Infinity before metadata is available.
+    const duration = video.duration;
+    if (!Number.isFinite(duration)) return;
+
+    const newTime = video.currentTime + seconds;
+    video.currentTime = Math.min(duration, Math.max(0.0, newTime));
+  }
+
+  setSeekMode(seekMode: boolean) {
+    this.seekMode = seekMode;
   }
 
   private createEyesGeometry() {

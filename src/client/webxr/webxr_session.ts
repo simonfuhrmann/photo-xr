@@ -19,7 +19,7 @@ export class WebXRSession {
 
   // VR input handling.
   private vrInput: VRInput;
-  private moveMode = false;
+  private squeezeHeld = false;
 
   // The renderer for the eyes geometry.
   private mediaRenderer: MediaRenderer;
@@ -129,8 +129,8 @@ export class WebXRSession {
     }
     // Squeeze button to start/stop splat movement.
     if (buttonIndex === ButtonId.SQUEEZE) {
-      this.moveMode = pressed;
-      this.mediaRenderer.setSplatMoveMode(this.moveMode);
+      this.squeezeHeld = pressed;
+      this.mediaRenderer.setSqueezeState(this.squeezeHeld);
     }
     // A-button to pause/unpause current video.
     if (pressed && buttonIndex === ButtonId.BUTTON_A) {
@@ -144,6 +144,8 @@ export class WebXRSession {
 
   // TODO: Move input handling into MediaRenderer?
   private onDirection(event: Event) {
+    if (this.squeezeHeld) return;
+
     const ev = event as CustomEvent<DirectionEvent>;
     const dir = ev.detail.direction;
     if (dir === StickDir.LEFT) this.onChangeMedia(-1);
@@ -152,7 +154,6 @@ export class WebXRSession {
 
   private onChangeMedia(delta: number) {
     if (!this.media) return;
-    if (this.moveMode) return;
 
     // Advance the media index.
     const album = this.media.album;

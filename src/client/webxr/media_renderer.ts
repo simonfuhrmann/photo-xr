@@ -31,12 +31,11 @@ export class MediaRenderer {
 
     const album = media.album;
     const entry = album.entries[media.index];
-    if (entry.media === types.MediaType.IMAGE_GPHOTO ||
-      entry.media === types.MediaType.IMAGE_SBS ||
-      entry.media === types.MediaType.VIDEO_SBS) {
+    if (entry.media === types.MediaType.IMAGE ||
+      entry.media === types.MediaType.VIDEO) {
       this.splatRenderer.changeMedia(undefined);
       this.photoRenderer.changeMedia(media);
-    } else if (entry.media === types.MediaType.GEOMETRY_SPLAT) {
+    } else if (entry.media === types.MediaType.SPLAT) {
       this.photoRenderer.changeMedia(undefined);
       this.splatRenderer.changeMedia(media);
     }

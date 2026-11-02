@@ -3,10 +3,9 @@
 export enum MediaType {
   UNKNOWN = 'UNKNOWN',
   ALBUM = 'ALBUM',
-  IMAGE_SBS = 'IMAGE_SBS',
-  IMAGE_GPHOTO = 'IMAGE_GPHOTO',
-  VIDEO_SBS = 'VIDEO_SBS',
-  GEOMETRY_SPLAT = 'GEOMETRY_SPLAT',
+  IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO',
+  SPLAT = 'SPLAT',
 }
 
 export interface AlbumEntry {

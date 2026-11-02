@@ -55,9 +55,13 @@ export class XrAlbumList extends LitElement {
   @state() private apiError?: api.HttpError;
   @state() private apiData?: types.AlbumResponse;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.onRequest();
+  override updated(changedProperties: Map<string, any>) {
+    if (changedProperties.has('path')) {
+      this.apiData = undefined;
+    }
+    if (changedProperties.has('open') && this.open && !this.apiData) {
+      this.onRequest();
+    }
   }
 
   override render() {
@@ -73,27 +77,29 @@ export class XrAlbumList extends LitElement {
   }
 
   private renderData() {
-    if (!this.apiData) return nothing;
     const icon = getIconForFolder(this.isLoading, this.open);
     const isSelected = this.open && this.selected === '';
     const onClick = () => {
       this.selected = '';
-      const data = this.apiData;
-      const eventOptions = { detail: data, bubbles: true, composed: true };
-      this.dispatchEvent(new CustomEvent('selected', eventOptions));
+      this.open = true;
+      this.maybeDispatchEvent();
     };
     return html`
       <div id="entry" @click=${onClick} ?selected=${isSelected}>
         <oxy-icon ?spin=${this.isLoading} icon="${icon}"></oxy-icon>
         <div>${this.name}</div>
       </div>
-      <div id="albums">${this.renderAlbums()}</div>
+      ${this.renderAlbums()}
     `;
   }
 
   private renderAlbums() {
-    if (!this.apiData || !this.open) return nothing;
-    return this.apiData.entries.map(this.renderAlbum.bind(this));
+    if (!this.open || !this.apiData) return nothing;
+    return html`
+      <div id="albums">
+        ${this.apiData.entries.map(this.renderAlbum.bind(this))}
+      </div>
+    `;
   }
 
   private renderAlbum(entry: types.AlbumEntry) {
@@ -123,12 +129,20 @@ export class XrAlbumList extends LitElement {
     this.apiData = undefined
     api.getAlbum(this.path).then((data) => {
       this.apiData = data;
+      this.maybeDispatchEvent();
     }).catch((err: api.HttpError) => {
       this.apiError = err;
     }).finally(() => {
       clearTimeout(timeout);
       this.isLoading = false;
     });
+  }
+
+  private maybeDispatchEvent() {
+    if (!this.apiData) return;
+    const data = this.apiData;
+    const eventOptions = { detail: data, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('selected', eventOptions));
   }
 }
 

@@ -21,6 +21,15 @@ namespace {
 namespace fs = std::filesystem;
 using FsEntry = fs::directory_entry;
 
+
+std::string MediaTypeToClientString(MediaType type) {
+  if (type == MediaType::IMAGE_SBS) return "IMAGE";
+  if (type == MediaType::IMAGE_GPHOTO) return "IMAGE";
+  if (type == MediaType::VIDEO_SBS) return "VIDEO";
+  if (type == MediaType::GEOMETRY_SPLAT) return "SPLAT";
+  return "UNKNOWN";
+}
+
 }  // namespace
 
 ApiHandler::ApiHandler(const Options& options) : options_(options) {}
@@ -111,7 +120,7 @@ util::Status ApiHandler::HandleAlbumRequest(
 
     util::Json::Object photo_entry;
     photo_entry["name"] = filename;
-    photo_entry["media"] = MediaTypeToString(cache_data->media_type);
+    photo_entry["media"] = MediaTypeToClientString(cache_data->media_type);
     entries.push_back(photo_entry);
   }
   util::Json::Object json_response;

@@ -61,7 +61,7 @@ export class XrAppContent extends LitElement {
       cursor: pointer;
 
       background-color: rgba(255, 255, 255, 0.1);
-      padding: 8px 16px;
+      padding: 8px;
       border: 2px solid transparent;
     }
     div.media[selected] {
@@ -71,6 +71,9 @@ export class XrAppContent extends LitElement {
       display: flex;
       flex-direction: column;
       flex-grow: 1;
+    }
+    div.media oxy-icon {
+      margin-right: 8px;
     }
     div.media .info {
       font-size: 0.9em;
@@ -172,11 +175,11 @@ export class XrAppContent extends LitElement {
     };
     return html`
       <div class="media" ?selected=${isSelected} @click=${onSelect}>
+        <oxy-icon icon=${getIconForMedia(entry)}></oxy-icon>
         <div class="media-layout">
           <div class="filename">${entry.name}</div>
           <div class="info">size: n/a, type: ${entry.media}</div>
         </div>
-        <oxy-icon icon=${getIconForMedia(entry)}></oxy-icon>
       </div>
     `;
   }
@@ -235,13 +238,14 @@ function getStatusLabel(isAvailable: boolean) {
 }
 
 function getIconForMedia(entry: types.AlbumEntry) {
-  if (entry.media === types.MediaType.VIDEO_SBS) {
+  if (entry.media === types.MediaType.VIDEO) {
     return 'image:movie-creation';
-  }
-  if (entry.media === types.MediaType.IMAGE_GPHOTO) {
-    return 'xr:vr180';
-  } else if (entry.media === types.MediaType.IMAGE_SBS) {
-    return 'xr:sbs';
-  }
-  return 'image:photo';
+  } else if (entry.media === types.MediaType.IMAGE) {
+    return 'image:photo';
+  }else if (entry.media === types.MediaType.SPLAT) {
+    return 'image:grain';
+  }else if (entry.media === types.MediaType.ALBUM) {
+    return 'base:folder';
+  } 
+  return 'base:cancel';
 }

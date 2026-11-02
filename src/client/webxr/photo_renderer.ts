@@ -41,11 +41,9 @@ export class PhotoRenderer {
 
     const album = media.album;
     const entry = album.entries[media.index];
-    if (entry.media === types.MediaType.IMAGE_GPHOTO) {
+    if (entry.media === types.MediaType.IMAGE) {
       this.setSideBySidePhoto(media);
-    } else if (entry.media === types.MediaType.IMAGE_SBS) {
-      this.setSideBySidePhoto(media);
-    } else if (entry.media === types.MediaType.VIDEO_SBS) {
+    } else if (entry.media === types.MediaType.VIDEO) {
       this.setSideBySideVideo(media);
     }
   }

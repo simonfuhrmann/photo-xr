@@ -1,7 +1,8 @@
+import { MediaInterface } from './media_interface';
+import { VRInput } from './vr_input';
+import * as stringUtils from '../modules/string_utils';
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
-import * as stringUtils from '../modules/string_utils';
-import { VRInput } from './vr_input';
 
 // Renderer for left/right eye photos and videos.
 export class PhotoRenderer {
@@ -18,11 +19,18 @@ export class PhotoRenderer {
   private videoElement?: HTMLVideoElement;
   private videoTexture?: THREE.VideoTexture;
 
+  // The media interface which is updated every frame.
+  private mediaInterface: MediaInterface;
+
   // In seek mode, left and right directions seek by 10 seconds.
   private seekMode = false;
   private hasSeekDir = false;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    mediaInterface: MediaInterface,
+  ) {
     this.renderer = renderer;
     this.scene = scene;
     this.setMaterialTexture(this.leftMaterial, null);
@@ -30,25 +38,77 @@ export class PhotoRenderer {
 
     // Create the half-sphere geometry for the left and right eye.
     this.createEyesGeometry();
+
+    // Register media callbacks.
+    this.mediaInterface = mediaInterface;
+    mediaInterface.addMediaChangedCallback(() => {
+      this.changeMedia(mediaInterface.getMedia());
+    });
+    mediaInterface.addVideoPauseCallback(() => {
+      const videoState = mediaInterface.getVideoState();
+      if (!videoState) return;
+      this.setVideoPause(videoState.paused);
+    });
+    mediaInterface.addVideoMuteCallback(() => {
+      const videoState = mediaInterface.getVideoState();
+      if (!videoState) return;
+      this.setVideoMute(videoState.muted);
+    });
   }
 
-  changeMedia(media?: types.SelectedMedia) {
+  cleanupResources() {
+    // Remove the eyes geometry from the scene.
+    this.scene.remove(this.eyesGroup);
+
+    // Clean up old textures.
+    this.setMaterialTexture(this.leftMaterial, null);
+    this.setMaterialTexture(this.rightMaterial, null);
+
+    // Dispose the master video texture.
+    this.videoTexture?.dispose();
+    this.videoTexture = undefined;
+
+    // Clean up the old video element.
+    if (this.videoElement) {
+      this.videoElement.pause();
+      this.videoElement.src = '';
+      this.videoElement.load();
+      this.videoElement = undefined;
+    }
+  }
+
+  updateFrame(vrInput: VRInput) {
+    this.processInputs(vrInput);
+    this.updatePhotoState();
+    this.updateVideoState();
+  }
+
+  // TODO: This should be removed. Seeking can be done via mediaInterface.
+  setSeekMode(seekMode: boolean) {
+    this.seekMode = seekMode;
+  }
+
+  private changeMedia(media?: types.SelectedMedia) {
     this.cleanupResources();
     if (!media) return;
+  
+    const album = media.album;
+    const entry = album.entries[media.index];
+    const isImage = entry.media === types.MediaType.IMAGE;
+    const isVideo = entry.media === types.MediaType.VIDEO;
+    if (!isImage && !isVideo) return;
 
     // Add the left/right sphere meshes to the scene.
     this.scene.add(this.eyesGroup);
 
-    const album = media.album;
-    const entry = album.entries[media.index];
-    if (entry.media === types.MediaType.IMAGE) {
+    if (isImage) {
       this.setSideBySidePhoto(media);
-    } else if (entry.media === types.MediaType.VIDEO) {
+    } else if (isVideo) {
       this.setSideBySideVideo(media);
     }
   }
 
-  processInput(vrInput: VRInput) {
+  private processInputs(vrInput: VRInput) {
     if (!this.seekMode) return;
 
     // Get the max controller axes.
@@ -74,21 +134,21 @@ export class PhotoRenderer {
     }
   }
 
-  toggleVideoPause() {
+  private setVideoPause(paused: boolean) {
     if (!this.videoElement) return;
-    if (this.videoElement.paused) {
-      this.videoElement.play();
-    } else {
+    if (paused) {
       this.videoElement.pause();
+    } else {
+      this.videoElement.play();
     }
   }
 
-  toggleVideoMute() {
+  private setVideoMute(muted: boolean) {
     if (!this.videoElement) return;
-    this.videoElement.muted = !this.videoElement.muted;
+    this.videoElement.muted = muted;
   }
 
-  seekVideo(seconds: number) {
+  private seekVideo(seconds: number) {
     if (!this.videoElement) return;
     const video = this.videoElement;
 
@@ -98,10 +158,6 @@ export class PhotoRenderer {
 
     const newTime = video.currentTime + seconds;
     video.currentTime = Math.min(duration, Math.max(0.0, newTime));
-  }
-
-  setSeekMode(seekMode: boolean) {
-    this.seekMode = seekMode;
   }
 
   private createEyesGeometry() {
@@ -129,6 +185,7 @@ export class PhotoRenderer {
   private setSideBySidePhoto(media: types.SelectedMedia) {
     const url = this.getSbsMediaRequest(media);
     this.textureLoader.load(url, (texture) => {
+      this.updatePhotoState();
       this.configurePhotoTexture(texture);
       const [left, right] = this.createStereoTextures(texture);
       this.setMaterialTexture(this.leftMaterial, left);
@@ -145,6 +202,7 @@ export class PhotoRenderer {
     this.videoElement.playsInline = true;
     this.videoElement.play().then(() => {
       if (!this.videoElement) return;
+      this.updateVideoState();
       this.videoTexture = new THREE.VideoTexture(this.videoElement);
       this.configureVideoTexture(this.videoTexture);
       const [left, right] = this.createStereoTextures(this.videoTexture);
@@ -178,27 +236,6 @@ export class PhotoRenderer {
     texture.magFilter = THREE.LinearFilter;
   }
 
-  private cleanupResources() {
-    // Remove the eyes geometry from the scene.
-    this.scene.remove(this.eyesGroup);
-
-    // Clean up old textures.
-    this.setMaterialTexture(this.leftMaterial, null);
-    this.setMaterialTexture(this.rightMaterial, null);
-
-    // Dispose the master video texture.
-    this.videoTexture?.dispose();
-    this.videoTexture = undefined;
-
-    // Clean up the old video element.
-    if (this.videoElement) {
-      this.videoElement.pause();
-      this.videoElement.src = '';
-      this.videoElement.load();
-      this.videoElement = undefined;
-    }
-  }
-
   private createStereoTextures(texture: THREE.Texture): THREE.Texture[] {
     const leftTexture = texture.clone();
     leftTexture.repeat.set(0.5, 1);
@@ -216,5 +253,17 @@ export class PhotoRenderer {
     const album = media.album;
     const entry = album.entries[index];
     return stringUtils.joinPaths('/media', album.path, entry.name);
+  }
+
+  private updatePhotoState() {}
+
+  private updateVideoState() {
+    if (!this.mediaInterface || !this.videoElement) return;
+    this.mediaInterface.setVideoState({
+      duration: this.videoElement.duration,
+      currentTime: this.videoElement.currentTime,
+      paused: this.videoElement.paused,
+      muted: this.videoElement.muted,
+    });
   }
 }

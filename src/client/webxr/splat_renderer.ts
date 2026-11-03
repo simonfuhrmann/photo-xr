@@ -1,8 +1,9 @@
+import { MediaInterface } from './media_interface';
+import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+import { VRInput } from './vr_input';
+import * as stringUtils from '../modules/string_utils';
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
-import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
-import * as stringUtils from '../modules/string_utils';
-import { VRInput } from './vr_input';
 
 export class SplatRenderer {
   private renderer: THREE.WebGLRenderer;
@@ -16,7 +17,11 @@ export class SplatRenderer {
   private pivotRot = new THREE.Quaternion();
   private pivotPos = new THREE.Vector3();
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    mediaInterface: MediaInterface,
+  ) {
     this.renderer = renderer;
     this.scene = scene;
     this.scene.add(this.splatPivot);
@@ -25,11 +30,41 @@ export class SplatRenderer {
       // enableLod: true,
       // lodRenderScale: 5.0,
     });
+
+    // Register media changed callback.
+    mediaInterface.addMediaChangedCallback(() => {
+      this.changeMedia(mediaInterface.getMedia());
+    });
   }
 
-  changeMedia(media?: types.SelectedMedia) {
+  cleanupResources() {
+    if (this.splatMesh) {
+      this.splatPivot.remove(this.splatMesh);
+      this.splatMesh.dispose();
+      this.splatMesh = undefined;
+    }
+    if (this.sparkRenderer) {
+      this.scene.remove(this.sparkRenderer);
+    }
+  }
+
+  updateFrame(vrInput: VRInput) {
+    this.processInputs(vrInput);
+  }
+
+  // TODO: This should be removed and handled through MediaInterface.
+  setMoveMode(move: boolean) {
+    this.moveMode = move;
+  }
+
+  private changeMedia(media?: types.SelectedMedia) {
     this.cleanupResources();
     if (!media || !this.sparkRenderer) return;
+  
+    const album = media.album;
+    const entry = album.entries[media.index];
+    const isSplat = entry.media == types.MediaType.SPLAT;
+    if (!isSplat) return;
 
     // Reset user transformations.
     this.pivotPos.set(0, 0.75, -0.5);
@@ -47,7 +82,7 @@ export class SplatRenderer {
     });
   }
 
-  processInput(vrInput: VRInput) {
+  private processInputs(vrInput: VRInput) {
     if (!this.splatMesh || !this.moveMode) return;
 
     // Get the max controller axes.
@@ -96,25 +131,10 @@ export class SplatRenderer {
     this.splatPivot.position.copy(pos);
   }
 
-  setMoveMode(move: boolean) {
-    this.moveMode = move;
-  }
-
-  private cleanupResources() {
-    if (this.splatMesh) {
-      this.splatPivot.remove(this.splatMesh);
-      this.splatMesh.dispose();
-      this.splatMesh = undefined;
-    }
-    if (this.sparkRenderer) {
-      this.scene.remove(this.sparkRenderer);
-    }
-  }
-
   private onProgress(event: ProgressEvent) {
-    const total = event.total;
-    if (total == 0.0) return;
-    const loaded = event.loaded;
+    // const total = event.total;
+    // if (total == 0.0) return;
+    // const loaded = event.loaded;
     // console.log('progress', Math.round(loaded / total * 100.0));
   }
 

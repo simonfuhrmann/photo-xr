@@ -3,15 +3,13 @@ import * as types from '../modules/client_types';
 import { VRInput, ButtonId, ButtonEvent, DirectionEvent, StickDir } from './vr_input';
 import { MediaRenderer } from './media_renderer';
 import { UserInterface } from './user_interface';
+import { MediaInterface } from './media_interface';
 
 /**
  * The WebXR session object that is created and disposed on demand when a WebXR
  * session is started and ended.
  */
 export class WebXRSession {
-  // The album and media to display in this session.
-  private media?: types.SelectedMedia;
-
   // THREE global objects.
   private scene: THREE.Scene;
   private renderer: THREE.WebGLRenderer;
@@ -20,6 +18,9 @@ export class WebXRSession {
   // VR input handling.
   private vrInput: VRInput;
   private squeezeHeld = false;
+
+  // The album and media to display in this session.
+  private mediaInterface = new MediaInterface();
 
   // The renderer for the eyes geometry.
   private mediaRenderer: MediaRenderer;
@@ -50,15 +51,15 @@ export class WebXRSession {
     this.vrInput.addEventListener('button', this.onButton.bind(this));
     this.vrInput.addEventListener('direction', this.onDirection.bind(this));
 
-    this.mediaRenderer = new MediaRenderer(this.renderer, this.scene);
+    this.mediaRenderer = new MediaRenderer(
+      this.renderer, this.scene, this.mediaInterface);
     this.userInterface = new UserInterface(this.renderer, this.scene);
 
     this.setCameraLayers();
   }
 
   setMedia(media: types.SelectedMedia) {
-    this.media = media;
-    this.onChangeMedia(0);
+    this.mediaInterface.setMedia(media);
   }
 
   startSession(session: XRSession) {
@@ -74,6 +75,7 @@ export class WebXRSession {
 
   cleanupSession() {
     this.mediaRenderer.cleanupSession();
+    this.userInterface.cleanupSession();
     this.renderer.xr.setSession(null);
     this.renderer.setAnimationLoop(null);
     this.renderer.dispose();
@@ -86,7 +88,8 @@ export class WebXRSession {
       xrCameras.cameras[1].layers.enable(2); // right eye
     }
     this.vrInput.pollInputs();
-    this.mediaRenderer.processInput(this.vrInput);
+    this.mediaRenderer.updateFrame(this.vrInput);
+    this.userInterface.updateFrame(this.vrInput);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -134,11 +137,11 @@ export class WebXRSession {
     }
     // A-button to pause/unpause current video.
     if (pressed && buttonIndex === ButtonId.BUTTON_A) {
-      this.mediaRenderer.toggleVideoPause();
+      this.mediaInterface.toggleVideoPause();
     }
     // B-button to mute/unmute current video.
     if (pressed && buttonIndex === ButtonId.BUTTON_B) {
-      this.mediaRenderer.toggleVideoMute();
+      this.mediaInterface.toggleVideoMute();
     }
   }
 
@@ -148,17 +151,7 @@ export class WebXRSession {
 
     const ev = event as CustomEvent<DirectionEvent>;
     const dir = ev.detail.direction;
-    if (dir === StickDir.LEFT) this.onChangeMedia(-1);
-    if (dir === StickDir.RIGHT) this.onChangeMedia(1);
-  }
-
-  private onChangeMedia(delta: number) {
-    if (!this.media) return;
-
-    // Advance the media index.
-    const album = this.media.album;
-    const count = album.entries.length;
-    this.media.index = (this.media.index + delta + count) % count;
-    this.mediaRenderer.changeMedia(this.media);
+    if (dir === StickDir.LEFT) this.mediaInterface.changeMedia(-1);
+    if (dir === StickDir.RIGHT) this.mediaInterface.changeMedia(1);
   }
 }

@@ -1,57 +1,30 @@
-import * as THREE from 'three';
-import * as types from '../modules/client_types';
+import { MediaInterface } from './media_interface';
 import { PhotoRenderer } from './photo_renderer';
 import { SplatRenderer } from './splat_renderer'
 import { VRInput } from './vr_input';
+import * as THREE from 'three';
 
 export class MediaRenderer {
-  private renderer: THREE.WebGLRenderer;
-  private scene: THREE.Scene;
-
   private photoRenderer: PhotoRenderer;
   private splatRenderer: SplatRenderer;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
-    this.renderer = renderer;
-    this.scene = scene;
-    this.photoRenderer = new PhotoRenderer(this.renderer, this.scene);
-    this.splatRenderer = new SplatRenderer(this.renderer, this.scene);
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    mediaInterface: MediaInterface,
+  ) {
+    this.photoRenderer = new PhotoRenderer(renderer, scene, mediaInterface);
+    this.splatRenderer = new SplatRenderer(renderer, scene, mediaInterface);
   }
 
   cleanupSession() {
-    this.photoRenderer.changeMedia(undefined);
-    this.splatRenderer.changeMedia(undefined);
+    this.photoRenderer.cleanupResources();
+    this.splatRenderer.cleanupResources();
   }
 
-  changeMedia(media?: types.SelectedMedia) {
-    if (!media) {
-      this.cleanupSession();
-      return;
-    }
-
-    const album = media.album;
-    const entry = album.entries[media.index];
-    if (entry.media === types.MediaType.IMAGE ||
-      entry.media === types.MediaType.VIDEO) {
-      this.splatRenderer.changeMedia(undefined);
-      this.photoRenderer.changeMedia(media);
-    } else if (entry.media === types.MediaType.SPLAT) {
-      this.photoRenderer.changeMedia(undefined);
-      this.splatRenderer.changeMedia(media);
-    }
-  }
-
-  processInput(vrInput: VRInput) {
-    this.splatRenderer.processInput(vrInput);
-    this.photoRenderer.processInput(vrInput);
-  }
-
-  toggleVideoPause() {
-    this.photoRenderer.toggleVideoPause();
-  }
-
-  toggleVideoMute() {
-    this.photoRenderer.toggleVideoMute();
+  updateFrame(vrInput: VRInput) {
+    this.splatRenderer.updateFrame(vrInput);
+    this.photoRenderer.updateFrame(vrInput);
   }
 
   setSqueezeState(squeezeHeld: boolean) {

@@ -1,3 +1,4 @@
+import { VRInput } from './vr_input';
 import * as THREE from 'three';
 
 export class UserInterface {
@@ -17,12 +18,18 @@ export class UserInterface {
   toggleUi() {
     this.uiVisible = !this.uiVisible;
     this.group.visible = this.uiVisible;
-    if (this.uiVisible) {
-      this.showUi();
-    }
+    if (this.uiVisible) this.repositionUi();
   }
 
-  showUi() {
+  updateFrame(vrInput: VRInput) {
+    // TODO
+  }
+
+  cleanupSession() {
+    // TODO
+  }
+
+  private repositionUi() {
     const camPos = new THREE.Vector3();
     const camDir = new THREE.Vector3();
     this.renderer.xr.getCamera().getWorldPosition(camPos);

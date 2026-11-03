@@ -11,10 +11,13 @@ export class MediaRenderer {
   constructor(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
+    vrInput: VRInput,
     mediaInterface: MediaInterface,
   ) {
-    this.photoRenderer = new PhotoRenderer(renderer, scene, mediaInterface);
-    this.splatRenderer = new SplatRenderer(renderer, scene, mediaInterface);
+    this.photoRenderer = new PhotoRenderer(
+      renderer, scene, vrInput, mediaInterface);
+    this.splatRenderer = new SplatRenderer(
+      renderer, scene, vrInput, mediaInterface);
   }
 
   cleanupSession() {
@@ -22,9 +25,9 @@ export class MediaRenderer {
     this.splatRenderer.cleanupResources();
   }
 
-  updateFrame(vrInput: VRInput) {
-    this.splatRenderer.updateFrame(vrInput);
-    this.photoRenderer.updateFrame(vrInput);
+  updateFrame() {
+    this.splatRenderer.updateFrame();
+    this.photoRenderer.updateFrame();
   }
 
   setSqueezeState(squeezeHeld: boolean) {

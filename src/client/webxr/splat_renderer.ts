@@ -13,6 +13,7 @@ export class SplatRenderer {
   private splatPivot = new THREE.Group();
 
   // In move mode, the controller transforms the splat.
+  private vrInput: VRInput;
   private moveMode = false;
   private pivotRot = new THREE.Quaternion();
   private pivotPos = new THREE.Vector3();
@@ -20,10 +21,13 @@ export class SplatRenderer {
   constructor(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
+    vrInput: VRInput,
     mediaInterface: MediaInterface,
   ) {
     this.renderer = renderer;
     this.scene = scene;
+    this.vrInput = vrInput;
+
     this.scene.add(this.splatPivot);
     this.sparkRenderer = new SparkRenderer({
       renderer: this.renderer,
@@ -48,8 +52,8 @@ export class SplatRenderer {
     }
   }
 
-  updateFrame(vrInput: VRInput) {
-    this.processInputs(vrInput);
+  updateFrame() {
+    this.processInputs();
   }
 
   // TODO: This should be removed and handled through MediaInterface.
@@ -82,11 +86,11 @@ export class SplatRenderer {
     });
   }
 
-  private processInputs(vrInput: VRInput) {
+  private processInputs() {
     if (!this.splatMesh || !this.moveMode) return;
 
     // Get the max controller axes.
-    const inputState = vrInput.getState();
+    const inputState = this.vrInput.getState();
     let axisY = 0.0;
     let axisX = 0.0;
     for (const [gamepad, state] of inputState) {

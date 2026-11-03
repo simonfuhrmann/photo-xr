@@ -55,12 +55,14 @@ export interface GamepadState {
 export class VRInput extends EventTarget {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
+  private group = new THREE.Group();
   private state: Map<Gamepad, GamepadState> = new Map();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     super();
     this.renderer = renderer;
     this.scene = scene;
+    this.scene.add(this.group);
 
     // Register select and squeeze events for each controller.
     for (let i = 0; i < 2; i++) {
@@ -82,16 +84,16 @@ export class VRInput extends EventTarget {
     for (let i = 0; i < 2; i++) {
       const controller = this.renderer.xr.getController(i);
       controller.add(getRayLine());
-      this.scene.add(controller);
+      this.group.add(controller);
 
       const grip = this.renderer.xr.getControllerGrip(i);
       grip.add(controllerModelFactory.createControllerModel(grip));
-      this.scene.add(grip);
+      this.group.add(grip);
     }
 
     // The controllers need to be lit. Add light to the scene.
-    this.scene.add(getHemisphereLight());
-    this.scene.add(getDirectionalLight());
+    this.group.add(getHemisphereLight());
+    this.group.add(getDirectionalLight());
   }
 
   // The spec considers two types of controllers see

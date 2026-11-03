@@ -46,14 +46,13 @@ export class WebXRSession {
     // Create the VR input infrastructure.
     this.vrInput = new VRInput(this.renderer, this.scene);
     this.vrInput.addControllerModels();
-    this.vrInput.addEventListener('select', this.onSelect.bind(this));
-    this.vrInput.addEventListener('squeeze', this.onSqueeze.bind(this));
     this.vrInput.addEventListener('button', this.onButton.bind(this));
     this.vrInput.addEventListener('direction', this.onDirection.bind(this));
 
     this.mediaRenderer = new MediaRenderer(
-      this.renderer, this.scene, this.mediaInterface);
-    this.userInterface = new UserInterface(this.renderer, this.scene);
+      this.renderer, this.scene, this.vrInput, this.mediaInterface);
+    this.userInterface = new UserInterface(
+      this.renderer, this.scene, this.vrInput, this.mediaInterface);
 
     this.setCameraLayers();
   }
@@ -88,8 +87,8 @@ export class WebXRSession {
       xrCameras.cameras[1].layers.enable(2); // right eye
     }
     this.vrInput.pollInputs();
-    this.mediaRenderer.updateFrame(this.vrInput);
-    this.userInterface.updateFrame(this.vrInput);
+    this.mediaRenderer.updateFrame();
+    this.userInterface.updateFrame();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -103,21 +102,13 @@ export class WebXRSession {
   }
 
   private setCameraLayers() {
-    // This is visible by default.
+    // Enable the default layer (UI, controllers, splats).
     this.camera.layers.enable(0);
+
     // Enable the hemisphere layers for this camera (default is 0 only).
+    // These layers show the left/right eye geometry for photo/video.
     this.camera.layers.enable(1);
     this.camera.layers.enable(2);
-  }
-
-  // Called when the trigger is pressed, brings up the immersive UI.
-  private onSelect(event: Event) {
-    // this.userInterface.toggleUi();
-  }
-
-  // Called when the squeeze button is pressed, currently does nothing.
-  private onSqueeze(event: Event) {
-    // No-op.
   }
 
   // TODO: Move input handling into MediaRenderer?
@@ -126,10 +117,6 @@ export class WebXRSession {
     const buttonIndex = ev.detail.index;
     const pressed = ev.detail.pressed;
 
-    // Trigger button to show/hide UI.
-    if (!pressed && buttonIndex === ButtonId.TRIGGER) {
-      this.userInterface.toggleUi();
-    }
     // Squeeze button to start/stop splat movement.
     if (buttonIndex === ButtonId.SQUEEZE) {
       this.squeezeHeld = pressed;

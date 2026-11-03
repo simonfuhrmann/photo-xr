@@ -19,6 +19,9 @@ export class PhotoRenderer {
   private videoElement?: HTMLVideoElement;
   private videoTexture?: THREE.VideoTexture;
 
+  // The interface for receiving user inputs.
+  private vrInput: VRInput;
+
   // The media interface which is updated every frame.
   private mediaInterface: MediaInterface;
 
@@ -29,10 +32,12 @@ export class PhotoRenderer {
   constructor(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
+    vrInput: VRInput,
     mediaInterface: MediaInterface,
   ) {
     this.renderer = renderer;
     this.scene = scene;
+    this.vrInput = vrInput;
     this.setMaterialTexture(this.leftMaterial, null);
     this.setMaterialTexture(this.rightMaterial, null);
 
@@ -77,8 +82,8 @@ export class PhotoRenderer {
     }
   }
 
-  updateFrame(vrInput: VRInput) {
-    this.processInputs(vrInput);
+  updateFrame() {
+    this.processInputs();
     this.updatePhotoState();
     this.updateVideoState();
   }
@@ -108,11 +113,11 @@ export class PhotoRenderer {
     }
   }
 
-  private processInputs(vrInput: VRInput) {
+  private processInputs() {
     if (!this.seekMode) return;
 
     // Get the max controller axes.
-    const inputState = vrInput.getState();
+    const inputState = this.vrInput.getState();
     let axisX = 0.0;
     for (const [gamepad, state] of inputState) {
       if (Math.abs(state.axisX) > Math.abs(axisX)) axisX = state.axisX;

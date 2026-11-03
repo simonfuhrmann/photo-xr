@@ -1,32 +1,57 @@
-import { VRInput } from './vr_input';
+import { MediaInterface } from './media_interface';
+import { VRInput, ButtonEvent, ButtonId } from './vr_input';
 import * as THREE from 'three';
 
 export class UserInterface {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private group: THREE.Group;
+  private vrInput: VRInput;
+  private mediaInterface: MediaInterface;
+
+  private group = new THREE.Group();
   private uiVisible = false;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    scene: THREE.Scene,
+    vrInput: VRInput,
+    mediaInterface: MediaInterface,
+  ) {
     this.renderer = renderer;
     this.scene = scene;
-    this.group = new THREE.Group();
+    this.vrInput = vrInput;
+    this.mediaInterface = mediaInterface;
+
+    this.vrInput.addEventListener('button', this.onButton.bind(this));
+
     this.createInterface();
     this.createWorldAxes();
+    this.scene.add(this.group);
   }
 
-  toggleUi() {
-    this.uiVisible = !this.uiVisible;
-    this.group.visible = this.uiVisible;
-    if (this.uiVisible) this.repositionUi();
-  }
-
-  updateFrame(vrInput: VRInput) {
+  updateFrame() {
     // TODO
   }
 
   cleanupSession() {
     // TODO
+  }
+
+  private onButton(event: Event) {
+    const ev = event as CustomEvent<ButtonEvent>;
+    const buttonIndex = ev.detail.index;
+    const pressed = ev.detail.pressed;
+
+    // Trigger button to show/hide UI.
+    if (!pressed && buttonIndex === ButtonId.TRIGGER) {
+      this.toggleUi();
+    }
+  }
+
+  private toggleUi() {
+    this.uiVisible = !this.uiVisible;
+    this.group.visible = this.uiVisible;
+    if (this.uiVisible) this.repositionUi();
   }
 
   private repositionUi() {
@@ -75,9 +100,6 @@ export class UserInterface {
     this.group.add(leftPlane);
     this.group.add(centerPlane);
     this.group.add(rightPlane);
-
-    // Add to scene.
-    this.scene.add(this.group);
   }
 
   private createWorldAxes() {

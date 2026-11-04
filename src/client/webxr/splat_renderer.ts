@@ -1,14 +1,16 @@
 import { MediaInterface } from './media_interface';
 import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import { VRInput } from './vr_input';
-import * as stringUtils from '../modules/string_utils';
+import * as mediaUtils from '../modules/media_utils';
 import * as THREE from 'three';
 import * as types from '../modules/client_types';
 
 export class SplatRenderer {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
-  private sparkRenderer?: SparkRenderer;
+  private sparkRenderer: SparkRenderer;
+
+  // A splat media is active if the splat mesh is defined.
   private splatMesh?: SplatMesh;
   private splatPivot = new THREE.Group();
 
@@ -63,22 +65,18 @@ export class SplatRenderer {
 
   private changeMedia(media?: types.SelectedMedia) {
     this.cleanupResources();
-    if (!media || !this.sparkRenderer) return;
+    if (!media || !mediaUtils.isSplatMedia(media)) return;
   
-    const album = media.album;
-    const entry = album.entries[media.index];
-    const isSplat = entry.media == types.MediaType.SPLAT;
-    if (!isSplat) return;
-
     // Reset user transformations.
     this.pivotPos.set(0, 0.75, -0.5);
     this.pivotRot.set(0, 0, 0, 1);
     this.splatPivot.position.copy(this.pivotPos);
     this.splatPivot.quaternion.copy(this.pivotRot);
 
+    // Load the splat configure a callback when loading finished.
     this.scene.add(this.sparkRenderer);
     this.splatMesh = new SplatMesh({
-      url: this.getMediaUrl(media),
+      url: mediaUtils.getMediaUrl(media),
       // lod: true,
       // enableLod: true,
       onProgress: this.onProgress.bind(this),
@@ -166,7 +164,7 @@ export class SplatRenderer {
     this.splatMesh.quaternion.set(1, 0, 0, 0);
 
     // Position the rotated/scaled AABB center at (0, h/2, 0). The h/2
-    // moves the mesh up by half the AAB height, so it stands on the ground.
+    // moves the mesh up by half the AABB height, so it stands on the ground.
     this.splatMesh.position.set(
       -center.x * scale,
       (center.y + size.y / 2) * scale,
@@ -174,13 +172,5 @@ export class SplatRenderer {
     );
 
     this.splatPivot.add(this.splatMesh);
-  }
-
-  private getMediaUrl(media: types.SelectedMedia) {
-    // return "https://sparkjs.dev/assets/splats/butterfly.spz";
-    const index = media.index;
-    const album = media.album;
-    const entry = album.entries[index];
-    return stringUtils.joinPaths('/media', album.path, entry.name);
   }
 }
